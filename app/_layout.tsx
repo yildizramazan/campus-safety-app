@@ -1,24 +1,71 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Stack, useRouter, useSegments } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import React, { useEffect } from "react";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { AuthProvider, useAuth } from "@/contexts/auth";
+import { NotificationsProvider } from "@/contexts/notifications";
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
+SplashScreen.preventAutoHideAsync();
 
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+const queryClient = new QueryClient();
 
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
+function RootLayoutNav() {
+  const { isAuthenticated, isLoading } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    const inAuth = segments[0] === 'login' || segments[0] === 'register';
+
+    if (!isAuthenticated && !inAuth) {
+      router.replace('/login');
+    } else if (isAuthenticated && inAuth) {
+      router.replace('/(tabs)');
+    }
+  }, [isAuthenticated, isLoading, segments, router]);
+
+  useEffect(() => {
+    if (!isLoading) {
+      SplashScreen.hideAsync();
+    }
+  }, [isLoading]);
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <Stack screenOptions={{ headerBackTitle: "Back" }}>
+      <Stack.Screen name="login" options={{ headerShown: false }} />
+      <Stack.Screen name="register" options={{ headerShown: false }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="notification/[id]"
+        options={{
+          title: "Notification Details",
+          headerShown: true,
+        }}
+      />
+      <Stack.Screen
+        name="admin"
+        options={{
+          title: "Admin Panel",
+          headerShown: true,
+        }}
+      />
+    </Stack>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <NotificationsProvider>
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <RootLayoutNav />
+          </GestureHandlerRootView>
+        </NotificationsProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }

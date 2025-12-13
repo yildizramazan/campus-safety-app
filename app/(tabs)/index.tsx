@@ -1,98 +1,422 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { useState, useMemo } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  TextInput,
+  RefreshControl,
+} from 'react-native';
+import { useRouter, Stack, Href } from 'expo-router';
+import { Search, Filter, HeartPulse, ShieldAlert, Leaf, SearchIcon, Wrench, Settings } from 'lucide-react-native';
+import { useNotifications } from '@/contexts/notifications';
+import { useAuth } from '@/contexts/auth';
+import { Notification, NotificationType, NotificationStatus } from '@/types';
+import { NOTIFICATION_TYPES, STATUS_COLORS, STATUS_LABELS } from '@/constants/notifications';
+import Colors from '@/constants/colors';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+const ICON_MAP = {
+  health: HeartPulse,
+  security: ShieldAlert,
+  environmental: Leaf,
+  lost_found: SearchIcon,
+  technical: Wrench,
+};
 
-export default function HomeScreen() {
+export default function FeedScreen() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const { notifications, getFollowedNotifications } = useNotifications();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedType, setSelectedType] = useState<NotificationType | 'all'>('all');
+  const [selectedStatus, setSelectedStatus] = useState<NotificationStatus | 'all'>('all');
+  const [showFollowedOnly, setShowFollowedOnly] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const filteredNotifications = useMemo(() => {
+    let filtered = showFollowedOnly ? getFollowedNotifications() : notifications;
+
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        n =>
+          n.title.toLowerCase().includes(query) ||
+          n.description.toLowerCase().includes(query)
+      );
+    }
+
+    if (selectedType !== 'all') {
+      filtered = filtered.filter(n => n.type === selectedType);
+    }
+
+    if (selectedStatus !== 'all') {
+      filtered = filtered.filter(n => n.status === selectedStatus);
+    }
+
+    return filtered;
+  }, [notifications, searchQuery, selectedType, selectedStatus, showFollowedOnly, getFollowedNotifications]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 1000);
+  };
+
+  const getTimeAgo = (dateString: string) => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    if (seconds < 60) return 'Just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    return `${Math.floor(seconds / 86400)}d ago`;
+  };
+
+  const renderNotificationCard = ({ item }: { item: Notification }) => {
+    const typeConfig = NOTIFICATION_TYPES.find(t => t.value === item.type);
+    const IconComponent = ICON_MAP[item.type];
+    const isFollowed = user && item.followedBy.includes(user.id);
+
+    return (
+      <TouchableOpacity
+        style={styles.card}
+        onPress={() => router.push(`/notification/${item.id}` as Href)}
+        testID={`notification-${item.id}`}
+      >
+        <View style={styles.cardHeader}>
+          <View style={[styles.iconContainer, { backgroundColor: `${typeConfig?.color}20` }]}>
+            <IconComponent size={20} color={typeConfig?.color} />
+          </View>
+          <View style={styles.cardHeaderText}>
+            <Text style={styles.cardType}>{typeConfig?.label}</Text>
+            <Text style={styles.cardTime}>{getTimeAgo(item.createdAt)}</Text>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: `${STATUS_COLORS[item.status]}20` }]}>
+            <Text style={[styles.statusText, { color: STATUS_COLORS[item.status] }]}>
+              {STATUS_LABELS[item.status]}
+            </Text>
+          </View>
+        </View>
+
+        <Text style={styles.cardTitle} numberOfLines={2}>
+          {item.title}
+        </Text>
+        <Text style={styles.cardDescription} numberOfLines={2}>
+          {item.description}
+        </Text>
+
+        <View style={styles.cardFooter}>
+          <Text style={styles.cardLocation}>{item.location.address || 'Campus Area'}</Text>
+          {isFollowed && (
+            <View style={styles.followingBadge}>
+              <Text style={styles.followingText}>Following</Text>
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <View style={styles.container}>
+      <Stack.Screen
+        options={{
+          title: 'Campus Safety',
+          headerRight: () =>
+            user?.role === 'admin' ? (
+              <TouchableOpacity
+                onPress={() => router.push('/admin' as Href)}
+                style={styles.headerButton}
+                testID="admin-button"
+              >
+                <Settings size={24} color={Colors.light.tint} />
+              </TouchableOpacity>
+            ) : null,
+        }}
+      />
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      <View style={styles.searchContainer}>
+        <View style={styles.searchBar}>
+          <Search size={20} color="#9CA3AF" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search notifications..."
+            placeholderTextColor="#9CA3AF"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            testID="search-input"
+          />
+        </View>
+        <TouchableOpacity
+          style={styles.filterButton}
+          onPress={() => setShowFilters(!showFilters)}
+          testID="filter-button"
+        >
+          <Filter size={20} color={Colors.light.tint} />
+        </TouchableOpacity>
+      </View>
+
+      {showFilters && (
+        <View style={styles.filtersContainer}>
+          <View style={styles.filterRow}>
+            <TouchableOpacity
+              style={[
+                styles.filterChip,
+                selectedType === 'all' && styles.filterChipActive,
+              ]}
+              onPress={() => setSelectedType('all')}
+            >
+              <Text style={[styles.filterChipText, selectedType === 'all' && styles.filterChipTextActive]}>
+                All Types
+              </Text>
+            </TouchableOpacity>
+            {NOTIFICATION_TYPES.map(type => (
+              <TouchableOpacity
+                key={type.value}
+                style={[
+                  styles.filterChip,
+                  selectedType === type.value && styles.filterChipActive,
+                ]}
+                onPress={() => setSelectedType(type.value)}
+              >
+                <Text style={[styles.filterChipText, selectedType === type.value && styles.filterChipTextActive]}>
+                  {type.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={styles.filterRow}>
+            <TouchableOpacity
+              style={[
+                styles.filterChip,
+                selectedStatus === 'all' && styles.filterChipActive,
+              ]}
+              onPress={() => setSelectedStatus('all')}
+            >
+              <Text style={[styles.filterChipText, selectedStatus === 'all' && styles.filterChipTextActive]}>
+                All Status
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.filterChip,
+                selectedStatus === 'open' && styles.filterChipActive,
+              ]}
+              onPress={() => setSelectedStatus('open')}
+            >
+              <Text style={[styles.filterChipText, selectedStatus === 'open' && styles.filterChipTextActive]}>
+                Open
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.filterChip,
+                showFollowedOnly && styles.filterChipActive,
+              ]}
+              onPress={() => setShowFollowedOnly(!showFollowedOnly)}
+            >
+              <Text style={[styles.filterChipText, showFollowedOnly && styles.filterChipTextActive]}>
+                Following
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      <FlatList
+        data={filteredNotifications}
+        renderItem={renderNotificationCard}
+        keyExtractor={item => item.id}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors.light.tint}
+          />
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>No notifications found</Text>
+            <Text style={styles.emptySubtext}>
+              {searchQuery ? 'Try adjusting your search or filters' : 'New reports will appear here'}
+            </Text>
+          </View>
+        }
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  container: {
+    flex: 1,
+    backgroundColor: Colors.light.background,
+  },
+  headerButton: {
+    marginRight: 16,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    padding: 16,
+    gap: 12,
+  },
+  searchBar: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: Colors.light.card,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: Colors.light.text,
+  },
+  filterButton: {
+    width: 48,
+    height: 48,
+    backgroundColor: Colors.light.card,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  filtersContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    gap: 12,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
-  stepContainer: {
-    gap: 8,
+  filterChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: Colors.light.card,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  filterChipActive: {
+    backgroundColor: Colors.light.tint,
+    borderColor: Colors.light.tint,
+  },
+  filterChipText: {
+    fontSize: 14,
+    fontWeight: '500' as const,
+    color: Colors.light.text,
+  },
+  filterChipTextActive: {
+    color: '#FFFFFF',
+  },
+  listContent: {
+    padding: 16,
+    gap: 12,
+  },
+  card: {
+    backgroundColor: Colors.light.card,
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardHeaderText: {
+    flex: 1,
+  },
+  cardType: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.light.text,
+  },
+  cardTime: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: Colors.light.text,
+  },
+  cardDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 20,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: Colors.light.border,
+  },
+  cardLocation: {
+    fontSize: 12,
+    color: '#6B7280',
+    flex: 1,
+  },
+  followingBadge: {
+    backgroundColor: '#DBEAFE',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  followingText: {
+    fontSize: 11,
+    fontWeight: '600' as const,
+    color: Colors.light.tint,
+  },
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600' as const,
+    color: Colors.light.text,
     marginBottom: 8,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  emptySubtext: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
   },
 });

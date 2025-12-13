@@ -1,0 +1,228 @@
+import { useState } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Alert,
+} from 'react-native';
+import { useAuth } from '@/contexts/auth';
+import { useRouter } from 'expo-router';
+import { Shield } from 'lucide-react-native';
+import Colors from '@/constants/colors';
+
+export default function RegisterScreen() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [department, setDepartment] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const { register } = useAuth();
+  const router = useRouter();
+
+  const handleRegister = async () => {
+    if (!email || !password || !fullName || !department) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    if (!email.includes('@atauni.edu.tr')) {
+      Alert.alert('Error', 'Please use a valid @atauni.edu.tr email address');
+      return;
+    }
+
+    if (password.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters');
+      return;
+    }
+
+    setIsLoading(true);
+    const result = await register(email, password, fullName, department);
+    setIsLoading(false);
+
+    if (!result.success) {
+      Alert.alert('Registration Failed', result.error || 'An error occurred');
+    }
+  };
+
+  return (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={styles.header}>
+          <View style={styles.iconContainer}>
+            <Shield size={48} color={Colors.light.tint} strokeWidth={2} />
+          </View>
+          <Text style={styles.title}>Create Account</Text>
+          <Text style={styles.subtitle}>Join Campus Safety Network</Text>
+        </View>
+
+        <View style={styles.form}>
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Full Name</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your full name"
+              placeholderTextColor="#9CA3AF"
+              value={fullName}
+              onChangeText={setFullName}
+              autoCapitalize="words"
+              testID="fullname-input"
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Email</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="your.email@atauni.edu.tr"
+              placeholderTextColor="#9CA3AF"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              autoComplete="email"
+              testID="email-input"
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Department</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g., Computer Engineering"
+              placeholderTextColor="#9CA3AF"
+              value={department}
+              onChangeText={setDepartment}
+              testID="department-input"
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Password</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="At least 6 characters"
+              placeholderTextColor="#9CA3AF"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              autoComplete="password"
+              testID="password-input"
+            />
+          </View>
+
+          <TouchableOpacity
+            style={[styles.button, isLoading && styles.buttonDisabled]}
+            onPress={handleRegister}
+            disabled={isLoading}
+            testID="register-button"
+          >
+            <Text style={styles.buttonText}>
+              {isLoading ? 'Creating Account...' : 'Create Account'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.linkButton}
+            onPress={() => router.back()}
+            testID="back-to-login"
+          >
+            <Text style={styles.linkText}>Already have an account? Login</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.light.background,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    padding: 24,
+    justifyContent: 'center',
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+  iconContainer: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: '700' as const,
+    color: Colors.light.text,
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  form: {
+    width: '100%',
+  },
+  inputContainer: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.light.text,
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: Colors.light.card,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    color: Colors.light.text,
+  },
+  button: {
+    backgroundColor: Colors.light.tint,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600' as const,
+  },
+  linkButton: {
+    marginTop: 20,
+    padding: 12,
+    alignItems: 'center',
+  },
+  linkText: {
+    color: Colors.light.tint,
+    fontSize: 14,
+    fontWeight: '600' as const,
+  },
+});
