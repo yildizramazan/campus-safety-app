@@ -1,10 +1,10 @@
+import { AuthProvider, useAuth } from "@/contexts/auth";
+import { NotificationsProvider } from "@/contexts/notifications";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { AuthProvider, useAuth } from "@/contexts/auth";
-import { NotificationsProvider } from "@/contexts/notifications";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -18,7 +18,7 @@ function RootLayoutNav() {
   useEffect(() => {
     if (isLoading) return;
 
-    const inAuth = segments[0] === 'login' || segments[0] === 'register';
+    const inAuth = segments[0] === 'login' || segments[0] === 'register' || segments[0] === 'forgot-password';
 
     if (!isAuthenticated && !inAuth) {
       router.replace('/login');
@@ -37,6 +37,7 @@ function RootLayoutNav() {
     <Stack screenOptions={{ headerBackTitle: "Back" }}>
       <Stack.Screen name="login" options={{ headerShown: false }} />
       <Stack.Screen name="register" options={{ headerShown: false }} />
+      <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen
         name="notification/[id]"

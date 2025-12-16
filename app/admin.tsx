@@ -1,32 +1,32 @@
-import { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Alert,
-  Modal,
-} from 'react-native';
+import Colors from '@/constants/colors';
+import { NOTIFICATION_TYPES, STATUS_COLORS, STATUS_LABELS } from '@/constants/notifications';
+import { useAuth } from '@/contexts/auth';
+import { useNotifications } from '@/contexts/notifications';
+import { Notification, NotificationStatus } from '@/types';
 import { useRouter } from 'expo-router';
 import {
-  Shield,
   AlertTriangle,
-  Trash2,
-  Send,
-  X,
   HeartPulse,
-  ShieldAlert,
   Leaf,
   Search,
+  Send,
+  Shield,
+  ShieldAlert,
+  Trash2,
   Wrench,
+  X,
 } from 'lucide-react-native';
-import { useNotifications } from '@/contexts/notifications';
-import { useAuth } from '@/contexts/auth';
-import { Notification, NotificationStatus } from '@/types';
-import { NOTIFICATION_TYPES, STATUS_COLORS, STATUS_LABELS } from '@/constants/notifications';
-import Colors from '@/constants/colors';
+import { useState } from 'react';
+import {
+  Alert,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 const ICON_MAP = {
   health: HeartPulse,
@@ -39,11 +39,16 @@ const ICON_MAP = {
 export default function AdminPanelScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const { notifications, updateNotificationStatus, deleteNotification, createEmergencyAlert } = useNotifications();
+  const { notifications, updateNotificationStatus, deleteNotification, createEmergencyAlert, updateNotification } = useNotifications();
 
   const [showEmergencyModal, setShowEmergencyModal] = useState(false);
   const [emergencyTitle, setEmergencyTitle] = useState('');
   const [emergencyMessage, setEmergencyMessage] = useState('');
+
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingNotification, setEditingNotification] = useState<Notification | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
 
   if (user?.role !== 'admin') {
     return (
@@ -117,6 +122,33 @@ export default function AdminPanelScreen() {
     }
   };
 
+  const startEditing = (notification: Notification) => {
+    setEditingNotification(notification);
+    setEditTitle(notification.title);
+    setEditDescription(notification.description);
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingNotification) return;
+    if (!editTitle.trim() || !editDescription.trim()) {
+      Alert.alert('Error', 'Title and description cannot be empty');
+      return;
+    }
+
+    try {
+      await updateNotification(editingNotification.id, {
+        title: editTitle.trim(),
+        description: editDescription.trim(),
+      });
+      setShowEditModal(false);
+      setEditingNotification(null);
+      Alert.alert('Success', 'Notification updated');
+    } catch (e) {
+      Alert.alert('Error', 'Failed to update notification');
+    }
+  };
+
   const stats = {
     total: notifications.length,
     open: notifications.filter(n => n.status === 'open').length,
@@ -179,6 +211,7 @@ export default function AdminPanelScreen() {
                     </Text>
                     <Text style={styles.notificationMeta}>
                       By {notification.createdByName} • {typeConfig?.label}
+                      {'\n'}{notification.location?.address || 'No Location Provided'}
                     </Text>
                   </View>
                   <View style={[styles.statusBadge, { backgroundColor: `${STATUS_COLORS[notification.status]}20` }]}>
@@ -216,6 +249,12 @@ export default function AdminPanelScreen() {
                     <Text style={[styles.actionButtonText, { color: STATUS_COLORS.resolved }]}>
                       Resolve
                     </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.actionButton, styles.deleteButton]}
+                    onPress={() => startEditing(notification)}
+                  >
+                    <Wrench size={16} color={Colors.light.tint} />
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.actionButton, styles.deleteButton]}
@@ -282,6 +321,56 @@ export default function AdminPanelScreen() {
             >
               <Send size={20} color="#FFFFFF" />
               <Text style={styles.sendButtonText}>Send Alert</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showEditModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowEditModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Wrench size={24} color={Colors.light.tint} />
+              <Text style={styles.modalTitle}>Edit Notification</Text>
+              <TouchableOpacity
+                onPress={() => setShowEditModal(false)}
+                style={styles.closeButton}
+              >
+                <X size={24} color={Colors.light.text} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalForm}>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Title"
+                placeholderTextColor="#9CA3AF"
+                value={editTitle}
+                onChangeText={setEditTitle}
+              />
+              <TextInput
+                style={[styles.modalInput, styles.modalTextArea]}
+                placeholder="Description"
+                placeholderTextColor="#9CA3AF"
+                value={editDescription}
+                onChangeText={setEditDescription}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.sendButton, { backgroundColor: Colors.light.tint }]}
+              onPress={handleSaveEdit}
+            >
+              <Send size={20} color="#FFFFFF" />
+              <Text style={styles.sendButtonText}>Save Changes</Text>
             </TouchableOpacity>
           </View>
         </View>

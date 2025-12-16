@@ -1,19 +1,19 @@
-import { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Alert,
-} from 'react-native';
+import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/auth';
 import { useRouter } from 'expo-router';
 import { Shield } from 'lucide-react-native';
-import Colors from '@/constants/colors';
+import { useState } from 'react';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 export default function RegisterScreen() {
   const [email, setEmail] = useState('');
@@ -30,8 +30,8 @@ export default function RegisterScreen() {
       return;
     }
 
-    if (!email.includes('@atauni.edu.tr')) {
-      Alert.alert('Error', 'Please use a valid @atauni.edu.tr email address');
+    if (!email.includes('@')) {
+      Alert.alert('Error', 'Please enter a valid email address');
       return;
     }
 
@@ -84,7 +84,7 @@ export default function RegisterScreen() {
             <Text style={styles.label}>Email</Text>
             <TextInput
               style={styles.input}
-              placeholder="your.email@atauni.edu.tr"
+              placeholder="name@example.com"
               placeholderTextColor="#9CA3AF"
               value={email}
               onChangeText={setEmail}

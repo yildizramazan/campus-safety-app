@@ -1,10 +1,10 @@
 import Colors from '@/constants/colors';
-import { NOTIFICATION_TYPES } from '@/constants/notifications';
+import { NOTIFICATION_TYPES, STATUS_COLORS, STATUS_LABELS } from '@/constants/notifications';
 import { useNotifications } from '@/contexts/notifications';
-import { NotificationType } from '@/types';
+import { Notification, NotificationType } from '@/types';
 import * as Location from 'expo-location';
 import { Href, useRouter } from 'expo-router';
-import { HeartPulse, Leaf, MapPin, RefreshCw, Search, ShieldAlert, Wrench } from 'lucide-react-native';
+import { ArrowRight, HeartPulse, Leaf, MapPin, RefreshCw, Search, ShieldAlert, Wrench, X } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
@@ -28,6 +28,7 @@ export default function MapScreen() {
   const router = useRouter();
   const { notifications, refreshNotifications, loading } = useNotifications();
   const [selectedType, setSelectedType] = useState<NotificationType | 'all'>('all');
+  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
 
   useEffect(() => {
     if (Platform.OS !== 'web') {
@@ -44,8 +45,28 @@ export default function MapScreen() {
     return notifications.filter(n => n.type === selectedType);
   }, [notifications, selectedType]);
 
-  const handleMarkerPress = (notificationId: string) => {
-    router.push(`/notification/${notificationId}` as Href);
+  const handleMarkerPress = (notification: Notification) => {
+    setSelectedNotification(notification);
+  };
+
+  const handleMapPress = () => {
+    setSelectedNotification(null);
+  };
+
+  const navigateToDetails = (id: string) => {
+    router.push(`/notification/${id}` as Href);
+    setSelectedNotification(null);
+  };
+
+  const getTimeAgo = (dateString: string) => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    if (seconds < 60) return 'Just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    return `${Math.floor(seconds / 86400)}d ago`;
   };
 
   return (
@@ -57,10 +78,13 @@ export default function MapScreen() {
         showsUserLocation={Platform.OS !== 'web'}
         showsMyLocationButton={Platform.OS !== 'web'}
         showsCompass
+        onPress={handleMapPress}
         testID="map-view"
       >
         {filteredNotifications.map((notification) => {
           const typeConfig = NOTIFICATION_TYPES.find(t => t.value === notification.type);
+          const isSelected = selectedNotification?.id === notification.id;
+
           return (
             <Marker
               key={notification.id}
@@ -69,10 +93,17 @@ export default function MapScreen() {
                 longitude: notification.location.longitude,
               }}
               pinColor={typeConfig?.color}
-              onPress={() => handleMarkerPress(notification.id)}
+              onPress={(e) => {
+                e.stopPropagation(); // Prevent map press
+                handleMarkerPress(notification);
+              }}
               testID={`marker-${notification.id}`}
             >
-              <View style={[styles.marker, { backgroundColor: typeConfig?.color }]}>
+              <View style={[
+                styles.marker,
+                { backgroundColor: typeConfig?.color },
+                isSelected && styles.markerSelected
+              ]}>
                 <View style={styles.markerInner}>
                   {(() => {
                     const IconComponent = ICON_MAP[notification.type];
@@ -132,13 +163,71 @@ export default function MapScreen() {
       </View>
 
       <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{filteredNotifications.length}</Text>
-          <Text style={styles.statLabel}>
-            {selectedType === 'all' ? 'Total Incidents' : NOTIFICATION_TYPES.find(t => t.value === selectedType)?.label}
-          </Text>
-        </View>
+        {!selectedNotification && (
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>{filteredNotifications.length}</Text>
+            <Text style={styles.statLabel}>
+              {selectedType === 'all' ? 'Total Incidents' : NOTIFICATION_TYPES.find(t => t.value === selectedType)?.label}
+            </Text>
+          </View>
+        )}
       </View>
+
+      {/* Pin Information Card */}
+      {selectedNotification && (
+        <View style={styles.infoCardContainer}>
+          <TouchableOpacity
+            style={styles.infoCard}
+            onPress={() => navigateToDetails(selectedNotification.id)}
+            activeOpacity={0.9}
+          >
+            <View style={styles.infoHeaders}>
+              <View style={styles.infoTopRow}>
+                {(() => {
+                  const typeConfig = NOTIFICATION_TYPES.find(t => t.value === selectedNotification.type);
+                  const IconComponent = ICON_MAP[selectedNotification.type];
+                  return (
+                    <View style={[styles.infoIcon, { backgroundColor: `${typeConfig?.color}20` }]}>
+                      <IconComponent size={20} color={typeConfig?.color} />
+                    </View>
+                  );
+                })()}
+                <View style={styles.infoMeta}>
+                  <Text style={styles.infoType}>
+                    {NOTIFICATION_TYPES.find(t => t.value === selectedNotification.type)?.label}
+                  </Text>
+                  <Text style={styles.infoTime}>{getTimeAgo(selectedNotification.createdAt)}</Text>
+                </View>
+                <View style={[styles.statusBadge, { backgroundColor: `${STATUS_COLORS[selectedNotification.status]}20` }]}>
+                  <Text style={[styles.statusText, { color: STATUS_COLORS[selectedNotification.status] }]}>
+                    {STATUS_LABELS[selectedNotification.status]}
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setSelectedNotification(null)}
+              >
+                <X size={20} color="#9CA3AF" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.infoTitle} numberOfLines={1}>
+              {selectedNotification.title}
+            </Text>
+            <Text style={styles.infoDescription} numberOfLines={2}>
+              {selectedNotification.description}
+            </Text>
+
+            <View style={styles.infoFooter}>
+              <View style={styles.viewDetailsButton}>
+                <Text style={styles.viewDetailsText}>View Details</Text>
+                <ArrowRight size={16} color={Colors.light.tint} />
+              </View>
+            </View>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
@@ -165,6 +254,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
   },
+  markerSelected: {
+    transform: [{ scale: 1.2 }],
+    borderColor: Colors.light.tint,
+  },
   markerInner: {
     width: 28,
     height: 28,
@@ -175,7 +268,7 @@ const styles = StyleSheet.create({
   },
   headerControls: {
     position: 'absolute',
-    top: 60, // Adjusted for safe area roughly
+    top: 60,
     right: 16,
     zIndex: 10,
   },
@@ -196,9 +289,9 @@ const styles = StyleSheet.create({
   },
   filterContainer: {
     position: 'absolute',
-    top: 60, // Align with refresh button
+    top: 60,
     left: 16,
-    right: 70, // Leave space for refresh button
+    right: 70,
     flexDirection: 'row',
     gap: 8,
   },
@@ -232,9 +325,10 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     position: 'absolute',
-    bottom: 16,
+    bottom: 30, // Higher up to avoid tab bar
     left: 16,
     right: 16,
+    zIndex: 1, // Below info card
   },
   statCard: {
     backgroundColor: Colors.light.card,
@@ -260,4 +354,101 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     fontWeight: '600' as const,
   },
+
+  // Info Card Styles
+  infoCardContainer: {
+    position: 'absolute',
+    bottom: 20,
+    left: 20,
+    right: 20,
+    zIndex: 20,
+  },
+  infoCard: {
+    backgroundColor: Colors.light.card,
+    borderRadius: 20,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  infoHeaders: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  infoTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  infoIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoMeta: {
+    flex: 1,
+  },
+  infoType: {
+    fontSize: 14,
+    fontWeight: '700' as const,
+    color: Colors.light.text,
+  },
+  infoTime: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  statusText: {
+    fontSize: 10,
+    fontWeight: '700' as const,
+    textTransform: 'uppercase',
+  },
+  closeButton: {
+    padding: 4,
+    marginLeft: 8,
+  },
+  infoTitle: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: Colors.light.text,
+    marginBottom: 4,
+  },
+  infoDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  infoFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    borderTopWidth: 1,
+    borderTopColor: Colors.light.border,
+    paddingTop: 12,
+  },
+  viewDetailsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  viewDetailsText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.light.tint,
+  },
 });
+

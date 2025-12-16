@@ -1,19 +1,19 @@
-import { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Alert,
-} from 'react-native';
+import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/auth';
 import { useRouter } from 'expo-router';
 import { Shield } from 'lucide-react-native';
-import Colors from '@/constants/colors';
+import { useState } from 'react';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -62,7 +62,7 @@ export default function LoginScreen() {
             <Text style={styles.label}>Email</Text>
             <TextInput
               style={styles.input}
-              placeholder="your.email@atauni.edu.tr"
+              placeholder="name@example.com"
               placeholderTextColor="#9CA3AF"
               value={email}
               onChangeText={setEmail}
@@ -85,6 +85,12 @@ export default function LoginScreen() {
               autoComplete="password"
               testID="password-input"
             />
+            <TouchableOpacity
+              style={styles.forgotPassword}
+              onPress={() => router.push('/forgot-password')}
+            >
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+            </TouchableOpacity>
           </View>
 
           <TouchableOpacity
@@ -184,6 +190,15 @@ const styles = StyleSheet.create({
     padding: 16,
     fontSize: 16,
     color: Colors.light.text,
+  },
+  forgotPassword: {
+    alignSelf: 'flex-end',
+    marginTop: 8,
+  },
+  forgotPasswordText: {
+    fontSize: 14,
+    color: Colors.light.tint,
+    fontWeight: '500',
   },
   button: {
     backgroundColor: Colors.light.tint,

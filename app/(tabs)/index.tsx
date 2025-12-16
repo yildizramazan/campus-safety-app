@@ -27,7 +27,7 @@ const ICON_MAP = {
 export default function FeedScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const { notifications, getFollowedNotifications } = useNotifications();
+  const { notifications, emergencyAlerts, getFollowedNotifications } = useNotifications();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<NotificationType | 'all'>('all');
   const [selectedStatus, setSelectedStatus] = useState<NotificationStatus | 'all'>('all');
@@ -73,6 +73,18 @@ export default function FeedScreen() {
     if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
     return `${Math.floor(seconds / 86400)}d ago`;
   };
+
+  const renderEmergencyAlert = (alert: any) => (
+    <View key={alert.id} style={styles.emergencyCard}>
+      <View style={styles.emergencyHeader}>
+        <ShieldAlert size={24} color="#DC2626" />
+        <Text style={styles.emergencyTitle}>EMERGENCY ALERT</Text>
+      </View>
+      <Text style={styles.emergencySubject}>{alert.title}</Text>
+      <Text style={styles.emergencyMessage}>{alert.message}</Text>
+      <Text style={styles.emergencyTime}>{getTimeAgo(alert.createdAt)}</Text>
+    </View>
+  );
 
   const renderNotificationCard = ({ item }: { item: Notification }) => {
     const typeConfig = NOTIFICATION_TYPES.find(t => t.value === item.type);
@@ -136,6 +148,13 @@ export default function FeedScreen() {
             ) : null,
         }}
       />
+
+      {/* Emergency Alerts Section */}
+      {emergencyAlerts.length > 0 && (
+        <View style={styles.alertsContainer}>
+          {emergencyAlerts.map(alert => renderEmergencyAlert(alert))}
+        </View>
+      )}
 
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
@@ -418,5 +437,48 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     textAlign: 'center',
+  },
+  alertsContainer: {
+    padding: 16,
+    paddingBottom: 0,
+    gap: 12,
+  },
+  emergencyCard: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#F87171',
+    borderLeftWidth: 6,
+    borderLeftColor: '#DC2626',
+  },
+  emergencyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  emergencyTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#DC2626',
+    letterSpacing: 0.5,
+  },
+  emergencySubject: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#7F1D1D',
+    marginBottom: 4,
+  },
+  emergencyMessage: {
+    fontSize: 14,
+    color: '#991B1B',
+    lineHeight: 20,
+  },
+  emergencyTime: {
+    fontSize: 11,
+    color: '#EF4444',
+    marginTop: 8,
+    textAlign: 'right',
   },
 });
