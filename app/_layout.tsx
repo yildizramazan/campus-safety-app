@@ -18,7 +18,11 @@ function RootLayoutNav() {
   useEffect(() => {
     if (isLoading) return;
 
-    const inAuth = segments[0] === 'login' || segments[0] === 'register' || segments[0] === 'forgot-password';
+    const firstSegment = segments[0] as string | undefined;
+    const inAuth =
+      firstSegment === 'login' ||
+      firstSegment === 'register' ||
+      firstSegment === 'forgot-password';
 
     if (!isAuthenticated && !inAuth) {
       router.replace('/login');

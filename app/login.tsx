@@ -1,6 +1,6 @@
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/auth';
-import { useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import { Shield } from 'lucide-react-native';
 import { useState } from 'react';
 import {
@@ -34,6 +34,8 @@ export default function LoginScreen() {
 
     if (!result.success) {
       Alert.alert('Login Failed', result.error || 'An error occurred');
+    } else if (result.message) {
+      Alert.alert('Notice', result.message);
     }
   };
 
@@ -87,7 +89,7 @@ export default function LoginScreen() {
             />
             <TouchableOpacity
               style={styles.forgotPassword}
-              onPress={() => router.push('/forgot-password')}
+              onPress={() => router.push('/forgot-password' as Href)}
             >
               <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
             </TouchableOpacity>

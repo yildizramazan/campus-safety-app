@@ -1,6 +1,7 @@
 import Colors from '@/constants/colors';
-import { useAuth } from '@/contexts/auth';
+import { auth } from '@/config/firebaseConfig';
 import { useRouter } from 'expo-router';
+import { sendPasswordResetEmail } from 'firebase/auth';
 import { Shield } from 'lucide-react-native';
 import { useState } from 'react';
 import {
@@ -15,39 +16,40 @@ import {
   View,
 } from 'react-native';
 
-export default function RegisterScreen() {
+export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [department, setDepartment] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { register } = useAuth();
   const router = useRouter();
 
-  const handleRegister = async () => {
-    if (!email || !password || !fullName || !department) {
-      Alert.alert('Error', 'Please fill in all fields');
-      return;
-    }
-
-    if (!email.includes('@')) {
+  const handleSendReset = async () => {
+    if (!email || !email.includes('@')) {
       Alert.alert('Error', 'Please enter a valid email address');
       return;
     }
 
-    if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
-      return;
-    }
-
     setIsLoading(true);
-    const result = await register(email, password, fullName, department);
-    setIsLoading(false);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      Alert.alert(
+        'Email Sent',
+        'Check your inbox for a password reset link.',
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
+    } catch (error: any) {
+      console.error('Password reset error:', error?.code, error?.message);
+      let message = 'Unable to send reset email. Please try again.';
 
-    if (!result.success) {
-      Alert.alert('Registration Failed', result.error || 'An error occurred');
-    } else if (result.message) {
-      Alert.alert('Notice', result.message);
+      if (error.code === 'auth/user-not-found') {
+        message = 'No account found for this email.';
+      } else if (error.code === 'auth/invalid-email') {
+        message = 'Please enter a valid email address.';
+      } else if (error.code === 'auth/network-request-failed') {
+        message = 'Network error. Please check your connection and try again.';
+      }
+
+      Alert.alert('Reset Failed', message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -64,24 +66,13 @@ export default function RegisterScreen() {
           <View style={styles.iconContainer}>
             <Shield size={48} color={Colors.light.tint} strokeWidth={2} />
           </View>
-          <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>Join Campus Safety Network</Text>
+          <Text style={styles.title}>Reset Password</Text>
+          <Text style={styles.subtitle}>
+            Enter your email to receive a reset link
+          </Text>
         </View>
 
         <View style={styles.form}>
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Full Name</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your full name"
-              placeholderTextColor="#9CA3AF"
-              value={fullName}
-              onChangeText={setFullName}
-              autoCapitalize="words"
-              testID="fullname-input"
-            />
-          </View>
-
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Email</Text>
             <TextInput
@@ -93,44 +84,18 @@ export default function RegisterScreen() {
               autoCapitalize="none"
               keyboardType="email-address"
               autoComplete="email"
-              testID="email-input"
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Department</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g., Computer Engineering"
-              placeholderTextColor="#9CA3AF"
-              value={department}
-              onChangeText={setDepartment}
-              testID="department-input"
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="At least 6 characters"
-              placeholderTextColor="#9CA3AF"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoComplete="password"
-              testID="password-input"
+              testID="reset-email-input"
             />
           </View>
 
           <TouchableOpacity
             style={[styles.button, isLoading && styles.buttonDisabled]}
-            onPress={handleRegister}
+            onPress={handleSendReset}
             disabled={isLoading}
-            testID="register-button"
+            testID="send-reset-button"
           >
             <Text style={styles.buttonText}>
-              {isLoading ? 'Creating Account...' : 'Create Account'}
+              {isLoading ? 'Sending...' : 'Send reset email'}
             </Text>
           </TouchableOpacity>
 
@@ -139,7 +104,7 @@ export default function RegisterScreen() {
             onPress={() => router.back()}
             testID="back-to-login"
           >
-            <Text style={styles.linkText}>Already have an account? Login</Text>
+            <Text style={styles.linkText}>Back to login</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -177,7 +142,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#6B7280',
     textAlign: 'center',
   },
@@ -228,3 +193,4 @@ const styles = StyleSheet.create({
     fontWeight: '600' as const,
   },
 });
+

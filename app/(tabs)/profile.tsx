@@ -1,15 +1,85 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
+import { updateUserProfilePhoto } from '@/services/database';
+import { uploadProfileImage } from '@/services/storage';
+import * as ImagePicker from 'expo-image-picker';
 import { Stack } from 'expo-router';
 import { User as UserIcon, Mail, Building, Shield, Bell, LogOut } from 'lucide-react-native';
+import { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useAuth } from '@/contexts/auth';
 import { useNotifications } from '@/contexts/notifications';
 import Colors from '@/constants/colors';
 
 export default function ProfileScreen() {
-  const { user, logout, preferences, updatePreferences } = useAuth();
+  const { user, logout, preferences, updatePreferences, updateProfile } = useAuth();
   const { getFollowedNotifications } = useNotifications();
 
   const followedCount = getFollowedNotifications().length;
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+
+  useEffect(() => {
+    setImageUri(user?.photoURL ?? null);
+  }, [user?.photoURL]);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    ImagePicker.requestMediaLibraryPermissionsAsync().catch((error) => {
+      console.error('Media library permission error:', error);
+    });
+  }, []);
+
+  const handlePickProfileImage = async () => {
+    if (!user || isUploadingPhoto) return;
+
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.9,
+      });
+
+      if (result.canceled) return;
+      const uri = result.assets?.[0]?.uri;
+      if (!uri) return;
+
+      // Show local preview immediately
+      setImageUri(uri);
+
+      setIsUploadingPhoto(true);
+      const downloadURL = await uploadProfileImage(user.id, uri);
+
+      // Swap preview to stable URL and update auth context immediately for screen re-mounts.
+      setImageUri(downloadURL);
+      updateProfile({ photoURL: downloadURL });
+
+      try {
+        await updateUserProfilePhoto(user.id, downloadURL);
+      } catch (error: any) {
+        console.error('Failed to save profile photo URL:', error?.code, error?.message);
+        Alert.alert(
+          'Saved Locally',
+          'Your photo was uploaded, but we could not save it to your profile yet. It may not persist until you are back online.'
+        );
+      }
+    } catch (error) {
+      console.error('Profile image picker/upload error:', error);
+      Alert.alert('Error', 'Failed to update profile photo. Please try again.');
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -40,9 +110,23 @@ export default function ProfileScreen() {
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <View style={styles.avatar}>
-            <UserIcon size={48} color="#FFFFFF" />
-          </View>
+          <TouchableOpacity
+            style={styles.avatar}
+            onPress={handlePickProfileImage}
+            disabled={isUploadingPhoto}
+            testID="change-photo-button"
+          >
+            {imageUri ? (
+              <Image source={{ uri: imageUri }} style={styles.avatarImage} />
+            ) : (
+              <UserIcon size={48} color="#FFFFFF" />
+            )}
+            {isUploadingPhoto && (
+              <View style={styles.avatarOverlay}>
+                <ActivityIndicator color="#FFFFFF" />
+              </View>
+            )}
+          </TouchableOpacity>
           <Text style={styles.name}>{user.fullName}</Text>
           <View style={styles.roleBadge}>
             <Shield size={14} color={user.role === 'admin' ? '#7C3AED' : Colors.light.tint} />
@@ -203,6 +287,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   name: {
     fontSize: 24,

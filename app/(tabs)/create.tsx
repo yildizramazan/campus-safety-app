@@ -90,14 +90,15 @@ export default function CreateNotificationScreen() {
   const handlePickImage = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
       });
 
-      if (!result.canceled && result.assets[0]) {
-        setPhotoUri(result.assets[0].uri);
+      if (!result.canceled) {
+        const uri = result.assets?.[0]?.uri;
+        if (uri) setPhotoUri(uri);
       }
     } catch (error) {
       console.error('Image picker error:', error);
