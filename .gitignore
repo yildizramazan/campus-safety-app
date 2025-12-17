@@ -40,3 +40,10 @@ yarn-error.*
 .vercel
 
 .rork
+
+*.json
+!app.json
+!google-services.json
+!GoogleService-Info.plist
+
+campus-safety-4368f-firebase-adminsdk-*.json
