@@ -1,89 +1,25 @@
+```
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/auth';
 import { useNotifications } from '@/contexts/notifications';
-import { updateUserProfilePhoto } from '@/services/database';
-import { uploadProfileImage } from '@/services/storage';
-import * as ImagePicker from 'expo-image-picker';
 import { Stack } from 'expo-router';
 import { Bell, Building, LogOut, Mail, Shield, User as UserIcon } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Image,
-  Platform,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 
 export default function ProfileScreen() {
-  const { user, logout, preferences, updatePreferences, updateProfile } = useAuth();
+  const { user, logout, preferences, updatePreferences } = useAuth();
   const { getFollowedNotifications } = useNotifications();
 
   const followedCount = getFollowedNotifications().length;
-  const [imageUri, setImageUri] = useState<string | null>(null);
-  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
-
-  useEffect(() => {
-    setImageUri(user?.photoURL ?? null);
-  }, [user?.photoURL]);
-
-  useEffect(() => {
-    if (Platform.OS === 'web') return;
-    ImagePicker.requestMediaLibraryPermissionsAsync().catch((error) => {
-      console.error('Media library permission error:', error);
-    });
-  }, []);
-
-  const handlePickProfileImage = async () => {
-    if (!user || isUploadingPhoto) return;
-
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.9,
-      });
-
-      if (result.canceled) return;
-      const uri = result.assets?.[0]?.uri;
-      if (!uri) return;
-
-      // Show local preview immediately
-      setImageUri(uri);
-
-      setIsUploadingPhoto(true);
-      let downloadURL = uri;
-      try {
-        downloadURL = await uploadProfileImage(user.id, uri);
-      } catch (uploadError) {
-        // Silently fail upload and fall back to local URI
-        console.log('Using local URI as fallback');
-      }
-
-      // Swap preview to stable URL and update auth context immediately for screen re-mounts.
-      setImageUri(downloadURL);
-      updateProfile({ photoURL: downloadURL });
-
-      try {
-        await updateUserProfilePhoto(user.id, downloadURL);
-      } catch (error: any) {
-        console.error('Failed to save profile photo URL:', error?.code, error?.message);
-        // Only show alert for database failure, not upload failure
-        Alert.alert('Error', 'Failed to save photo to profile.');
-      }
-    } catch (error) {
-      console.error('Profile image picker error:', error);
-      Alert.alert('Error', 'Failed to pick image.');
-    } finally {
-      setIsUploadingPhoto(false);
-    }
-  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -114,23 +50,13 @@ export default function ProfileScreen() {
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.avatar}
-            onPress={handlePickProfileImage}
-            disabled={isUploadingPhoto}
-            testID="change-photo-button"
-          >
-            {imageUri ? (
-              <Image source={{ uri: imageUri }} style={styles.avatarImage} />
+          <View style={styles.avatar}>
+            {user.photoURL ? (
+              <Image source={{ uri: user.photoURL }} style={styles.avatarImage} />
             ) : (
               <UserIcon size={48} color="#FFFFFF" />
             )}
-            {isUploadingPhoto && (
-              <View style={styles.avatarOverlay}>
-                <ActivityIndicator color="#FFFFFF" />
-              </View>
-            )}
-          </TouchableOpacity>
+          </View>
           <Text style={styles.name}>{user.fullName}</Text>
           <View style={styles.roleBadge}>
             <Shield size={14} color={user.role === 'admin' ? '#7C3AED' : Colors.light.tint} />
