@@ -1,11 +1,11 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { useLocalSearchParams, Stack } from 'expo-router';
-import { useNotifications } from '@/contexts/notifications';
-import { useAuth } from '@/contexts/auth';
-import { MapPin, Clock, User as UserIcon, Heart, HeartPulse, ShieldAlert, Leaf, Search, Wrench } from 'lucide-react-native';
-import { NOTIFICATION_TYPES, STATUS_COLORS, STATUS_LABELS } from '@/constants/notifications';
 import Colors from '@/constants/colors';
+import { NOTIFICATION_TYPES, STATUS_COLORS, STATUS_LABELS } from '@/constants/notifications';
+import { useAuth } from '@/contexts/auth';
+import { useNotifications } from '@/contexts/notifications';
 import { NotificationStatus } from '@/types';
+import { Stack, useLocalSearchParams } from 'expo-router';
+import { Clock, Heart, HeartPulse, Leaf, MapPin, Search, ShieldAlert, User as UserIcon, Wrench } from 'lucide-react-native';
+import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const ICON_MAP = {
   health: HeartPulse,
@@ -91,6 +91,14 @@ export default function NotificationDetailScreen() {
 
           <Text style={styles.title}>{notification.title}</Text>
           <Text style={styles.description}>{notification.description}</Text>
+
+          {notification.photoUrl && (
+            <Image
+              source={{ uri: notification.photoUrl }}
+              style={styles.evidenceImage}
+              resizeMode="cover"
+            />
+          )}
         </View>
 
         <View style={styles.section}>
@@ -234,6 +242,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#6B7280',
     lineHeight: 24,
+  },
+  evidenceImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    marginTop: 16,
   },
   infoRow: {
     flexDirection: 'row',

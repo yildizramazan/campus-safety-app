@@ -131,24 +131,8 @@ export default function FeedScreen() {
     );
   };
 
-  return (
-    <View style={styles.container}>
-      <Stack.Screen
-        options={{
-          title: 'Campus Safety',
-          headerRight: () =>
-            user?.role === 'admin' ? (
-              <TouchableOpacity
-                onPress={() => router.push('/admin' as Href)}
-                style={styles.headerButton}
-                testID="admin-button"
-              >
-                <Settings size={24} color={Colors.light.tint} />
-              </TouchableOpacity>
-            ) : null,
-        }}
-      />
-
+  const renderHeader = () => (
+    <View>
       {/* Emergency Alerts Section */}
       {emergencyAlerts.length > 0 && (
         <View style={styles.alertsContainer}>
@@ -244,6 +228,26 @@ export default function FeedScreen() {
           </View>
         </View>
       )}
+    </View>
+  );
+
+  return (
+    <View style={styles.container}>
+      <Stack.Screen
+        options={{
+          title: 'Campus Safety',
+          headerRight: () =>
+            user?.role === 'admin' ? (
+              <TouchableOpacity
+                onPress={() => router.push('/admin' as Href)}
+                style={styles.headerButton}
+                testID="admin-button"
+              >
+                <Settings size={24} color={Colors.light.tint} />
+              </TouchableOpacity>
+            ) : null,
+        }}
+      />
 
       <FlatList
         data={filteredNotifications}
@@ -251,6 +255,7 @@ export default function FeedScreen() {
         keyExtractor={item => item.id}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        ListHeaderComponent={renderHeader}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

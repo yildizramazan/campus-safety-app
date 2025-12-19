@@ -130,7 +130,7 @@ export default function CreateNotificationScreen() {
         title: title.trim(),
         description: description.trim(),
         location,
-        photoUrl: photoUri || undefined,
+        photoUrl: photoUri || null,
       });
 
       Alert.alert(

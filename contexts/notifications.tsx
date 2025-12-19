@@ -21,7 +21,7 @@ interface CreateNotificationData {
     longitude: number;
     address?: string;
   };
-  photoUrl?: string;
+  photoUrl?: string | null;
 }
 
 export const [NotificationsProvider, useNotifications] = createContextHook(() => {

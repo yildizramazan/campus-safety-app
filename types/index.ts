@@ -31,7 +31,7 @@ export interface Notification {
   createdByName: string;
   createdAt: string;
   updatedAt: string;
-  photoUrl?: string;
+  photoUrl?: string | null;
   followedBy: string[];
 }
 
