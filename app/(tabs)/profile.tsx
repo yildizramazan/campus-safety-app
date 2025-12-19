@@ -1,7 +1,8 @@
 import { updateUserProfilePhoto } from '@/services/database';
 import { uploadProfileImage } from '@/services/storage';
+import { NOTIFICATION_TYPES } from '@/constants/notifications';
 import * as ImagePicker from 'expo-image-picker';
-import { Stack } from 'expo-router';
+import { Href, Stack, useRouter } from 'expo-router';
 import { User as UserIcon, Mail, Building, Shield, Bell, LogOut } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
@@ -21,12 +22,17 @@ import { useNotifications } from '@/contexts/notifications';
 import Colors from '@/constants/colors';
 
 export default function ProfileScreen() {
+  const router = useRouter();
   const { user, logout, preferences, updatePreferences, updateProfile } = useAuth();
   const { getFollowedNotifications } = useNotifications();
 
-  const followedCount = getFollowedNotifications().length;
+  const followedNotifications = getFollowedNotifications();
+  const followedCount = followedNotifications.length;
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const nameParts = user?.fullName.trim().split(' ').filter(Boolean) ?? [];
+  const firstName = user?.firstName?.trim() || nameParts[0] || '';
+  const lastName = user?.lastName?.trim() || nameParts.slice(1).join(' ');
 
   useEffect(() => {
     setImageUri(user?.photoURL ?? null);
@@ -120,26 +126,52 @@ export default function ProfileScreen() {
               <Image source={{ uri: imageUri }} style={styles.avatarImage} />
             ) : (
               <UserIcon size={48} color="#FFFFFF" />
-            )}
-            {isUploadingPhoto && (
-              <View style={styles.avatarOverlay}>
-                <ActivityIndicator color="#FFFFFF" />
-              </View>
-            )}
-          </TouchableOpacity>
-          <Text style={styles.name}>{user.fullName}</Text>
+          )}
+          {isUploadingPhoto && (
+            <View style={styles.avatarOverlay}>
+              <ActivityIndicator color="#FFFFFF" />
+            </View>
+          )}
+        </TouchableOpacity>
+        <Text style={styles.name}>{user.fullName}</Text>
+        {user.role === 'admin' && (
           <View style={styles.roleBadge}>
-            <Shield size={14} color={user.role === 'admin' ? '#7C3AED' : Colors.light.tint} />
-            <Text style={[styles.roleText, { color: user.role === 'admin' ? '#7C3AED' : Colors.light.tint }]}>
-              {user.role === 'admin' ? 'Administrator' : 'User'}
+            <Shield size={14} color="#7C3AED" />
+            <Text style={[styles.roleText, { color: '#7C3AED' }]}>
+              Administrator
             </Text>
           </View>
-        </View>
+        )}
+      </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account Information</Text>
 
           <View style={styles.infoCard}>
+            <View style={styles.infoRow}>
+              <View style={styles.infoIcon}>
+                <UserIcon size={20} color={Colors.light.tint} />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Name</Text>
+                <Text style={styles.infoValue}>{firstName || '—'}</Text>
+              </View>
+            </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.infoRow}>
+              <View style={styles.infoIcon}>
+                <UserIcon size={20} color={Colors.light.tint} />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Surname</Text>
+                <Text style={styles.infoValue}>{lastName || '—'}</Text>
+              </View>
+            </View>
+
+            <View style={styles.divider} />
+
             <View style={styles.infoRow}>
               <View style={styles.infoIcon}>
                 <Mail size={20} color={Colors.light.tint} />
@@ -159,6 +191,20 @@ export default function ProfileScreen() {
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Department</Text>
                 <Text style={styles.infoValue}>{user.department}</Text>
+              </View>
+            </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.infoRow}>
+              <View style={styles.infoIcon}>
+                <Shield size={20} color={Colors.light.tint} />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Role</Text>
+                <Text style={styles.infoValue}>
+                  {user.role === 'admin' ? 'Administrator' : 'User'}
+                </Text>
               </View>
             </View>
 
@@ -237,6 +283,61 @@ export default function ProfileScreen() {
                 testID="emergency-toggle"
               />
             </View>
+
+            <View style={styles.divider} />
+
+            {NOTIFICATION_TYPES.map(type => (
+              <View key={type.value} style={styles.settingRow}>
+                <View style={styles.settingInfo}>
+                  <Text style={styles.settingLabel}>{type.label}</Text>
+                  <Text style={styles.settingDescription}>
+                    Receive {type.label.toLowerCase()} notifications
+                  </Text>
+                </View>
+                <Switch
+                  value={preferences.typePreferences?.[type.value] ?? true}
+                  onValueChange={(value) =>
+                    updatePreferences({
+                      ...preferences,
+                      typePreferences: {
+                        ...(preferences.typePreferences ?? {}),
+                        [type.value]: value,
+                      },
+                    })
+                  }
+                  trackColor={{ false: '#E5E7EB', true: Colors.light.tint }}
+                  thumbColor="#FFFFFF"
+                  testID={`type-toggle-${type.value}`}
+                />
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Followed Notifications</Text>
+          <View style={styles.followedCard}>
+            {followedNotifications.length === 0 ? (
+              <Text style={styles.followedEmptyText}>No followed notifications yet.</Text>
+            ) : (
+              followedNotifications.map(notification => (
+                <TouchableOpacity
+                  key={notification.id}
+                  style={styles.followedRow}
+                  onPress={() => router.push(`/notification/${notification.id}` as Href)}
+                  testID={`followed-${notification.id}`}
+                >
+                  <View style={styles.followedInfo}>
+                    <Text style={styles.followedTitle} numberOfLines={1}>
+                      {notification.title}
+                    </Text>
+                    <Text style={styles.followedMeta}>
+                      Status: {notification.status.replace('_', ' ')}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))
+            )}
           </View>
         </View>
 
@@ -386,6 +487,36 @@ const styles = StyleSheet.create({
   },
   settingDescription: {
     fontSize: 13,
+    color: '#6B7280',
+  },
+  followedCard: {
+    backgroundColor: Colors.light.card,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    gap: 12,
+  },
+  followedRow: {
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.light.border,
+  },
+  followedInfo: {
+    gap: 4,
+  },
+  followedTitle: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: Colors.light.text,
+  },
+  followedMeta: {
+    fontSize: 12,
+    color: '#6B7280',
+    textTransform: 'capitalize',
+  },
+  followedEmptyText: {
+    fontSize: 14,
     color: '#6B7280',
   },
   divider: {

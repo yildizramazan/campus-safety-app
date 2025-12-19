@@ -6,6 +6,7 @@ import { NotificationStatus } from '@/types';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { Clock, Heart, HeartPulse, Leaf, MapPin, Search, ShieldAlert, User as UserIcon, Wrench } from 'lucide-react-native';
 import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import MapView, { Marker } from 'react-native-maps';
 
 const ICON_MAP = {
   health: HeartPulse,
@@ -34,6 +35,12 @@ export default function NotificationDetailScreen() {
   const IconComponent = ICON_MAP[notification.type];
   const isFollowed = user && notification.followedBy.includes(user.id);
   const isAdmin = user?.role === 'admin';
+  const minimapRegion = {
+    latitude: notification.location.latitude,
+    longitude: notification.location.longitude,
+    latitudeDelta: 0.005,
+    longitudeDelta: 0.005,
+  };
 
   const handleToggleFollow = () => {
     toggleFollow(notification.id);
@@ -107,6 +114,24 @@ export default function NotificationDetailScreen() {
             <Text style={styles.infoText}>
               {notification.location.address || `${notification.location.latitude.toFixed(6)}, ${notification.location.longitude.toFixed(6)}`}
             </Text>
+          </View>
+          <View style={styles.minimapContainer}>
+            <MapView
+              style={styles.minimap}
+              initialRegion={minimapRegion}
+              scrollEnabled={false}
+              zoomEnabled={false}
+              pitchEnabled={false}
+              rotateEnabled={false}
+              pointerEvents="none"
+            >
+              <Marker
+                coordinate={{
+                  latitude: notification.location.latitude,
+                  longitude: notification.location.longitude,
+                }}
+              />
+            </MapView>
           </View>
 
           <View style={styles.infoRow}>
@@ -254,6 +279,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     marginBottom: 12,
+  },
+  minimapContainer: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    marginBottom: 16,
+  },
+  minimap: {
+    width: '100%',
+    height: 140,
   },
   infoText: {
     flex: 1,

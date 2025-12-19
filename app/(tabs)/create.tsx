@@ -1,6 +1,8 @@
 import Colors from '@/constants/colors';
 import { NOTIFICATION_TYPES } from '@/constants/notifications';
+import { useAuth } from '@/contexts/auth';
 import { useNotifications } from '@/contexts/notifications';
+import { uploadNotificationImage } from '@/services/storage';
 import { NotificationType } from '@/types';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
@@ -10,6 +12,7 @@ import { useEffect, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -18,6 +21,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import MapView, { Marker, Region } from 'react-native-maps';
 
 const ICON_MAP = {
   health: HeartPulse,
@@ -27,8 +31,16 @@ const ICON_MAP = {
   technical: Wrench,
 };
 
+const DEFAULT_REGION: Region = {
+  latitude: 39.9042,
+  longitude: 41.2678,
+  latitudeDelta: 0.01,
+  longitudeDelta: 0.01,
+};
+
 export default function CreateNotificationScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const { createNotification } = useNotifications();
 
   const [selectedType, setSelectedType] = useState<NotificationType>('health');
@@ -38,6 +50,9 @@ export default function CreateNotificationScreen() {
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
+  const [mapSelection, setMapSelection] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [mapRegion, setMapRegion] = useState<Region>(DEFAULT_REGION);
 
   useEffect(() => {
     if (Platform.OS !== 'web') {
@@ -106,6 +121,50 @@ export default function CreateNotificationScreen() {
     }
   };
 
+  const openMapPicker = () => {
+    const baseLocation = location ?? DEFAULT_REGION;
+    setMapSelection({
+      latitude: baseLocation.latitude,
+      longitude: baseLocation.longitude,
+    });
+    setMapRegion({
+      latitude: baseLocation.latitude,
+      longitude: baseLocation.longitude,
+      latitudeDelta: DEFAULT_REGION.latitudeDelta,
+      longitudeDelta: DEFAULT_REGION.longitudeDelta,
+    });
+    setIsMapPickerOpen(true);
+  };
+
+  const handleConfirmMapLocation = async () => {
+    if (!mapSelection) {
+      Alert.alert('Select a Location', 'Tap on the map to choose a location.');
+      return;
+    }
+
+    let address: string | undefined;
+    if (Platform.OS !== 'web') {
+      try {
+        const [result] = await Location.reverseGeocodeAsync({
+          latitude: mapSelection.latitude,
+          longitude: mapSelection.longitude,
+        });
+        if (result) {
+          address = `${result.street || ''}, ${result.city || ''}`.trim();
+        }
+      } catch (error) {
+        console.warn('Reverse geocode failed:', error);
+      }
+    }
+
+    setLocation({
+      latitude: mapSelection.latitude,
+      longitude: mapSelection.longitude,
+      ...(address ? { address } : {}),
+    });
+    setIsMapPickerOpen(false);
+  };
+
   const handleSubmit = async () => {
     if (!title.trim()) {
       Alert.alert('Validation Error', 'Please enter a title');
@@ -124,13 +183,26 @@ export default function CreateNotificationScreen() {
 
     try {
       setIsSubmitting(true);
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      const addressClean = location.address?.trim();
+      const locationPayload = addressClean
+        ? { ...location, address: addressClean }
+        : { latitude: location.latitude, longitude: location.longitude };
+      let photoUrlClean: string | undefined;
+      if (photoUri) {
+        const uploadedUrl = await uploadNotificationImage(user.id, photoUri);
+        photoUrlClean = uploadedUrl.trim();
+      }
 
       await createNotification({
         type: selectedType,
         title: title.trim(),
         description: description.trim(),
-        location,
-        photoUrl: photoUri || null,
+        location: locationPayload,
+        ...(photoUrlClean ? { photoUrl: photoUrlClean } : {}),
       });
 
       Alert.alert(
@@ -248,6 +320,13 @@ export default function CreateNotificationScreen() {
                   : 'Get Current Location'}
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.mapPickerButton}
+            onPress={openMapPicker}
+            testID="map-picker-button"
+          >
+            <Text style={styles.mapPickerText}>Pick on Map</Text>
+          </TouchableOpacity>
           {location && (
             <Text style={styles.coordinates}>
               {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
@@ -268,7 +347,7 @@ export default function CreateNotificationScreen() {
             </Text>
           </TouchableOpacity>
           {photoUri && (
-            <Text style={styles.photoSuccess}>✓ Photo attached</Text>
+            <Text style={styles.photoSuccess}>Photo attached</Text>
           )}
         </View>
 
@@ -283,6 +362,42 @@ export default function CreateNotificationScreen() {
           </Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <Modal
+        visible={isMapPickerOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setIsMapPickerOpen(false)}
+      >
+        <View style={styles.mapModalOverlay}>
+          <View style={styles.mapModalContent}>
+            <MapView
+              style={styles.mapView}
+              initialRegion={mapRegion}
+              onPress={(event) => setMapSelection(event.nativeEvent.coordinate)}
+              onRegionChangeComplete={setMapRegion}
+            >
+              {mapSelection && <Marker coordinate={mapSelection} />}
+            </MapView>
+            <View style={styles.mapActions}>
+              <TouchableOpacity
+                style={styles.mapActionButton}
+                onPress={() => setIsMapPickerOpen(false)}
+              >
+                <Text style={styles.mapActionText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.mapActionButton, styles.mapActionPrimary]}
+                onPress={handleConfirmMapLocation}
+              >
+                <Text style={[styles.mapActionText, styles.mapActionTextPrimary]}>
+                  Use Location
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -388,6 +503,21 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 4,
   },
+  mapPickerButton: {
+    marginTop: 12,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    backgroundColor: Colors.light.card,
+  },
+  mapPickerText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.light.tint,
+  },
   photoButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -420,6 +550,50 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontSize: 18,
     fontWeight: '700' as const,
+    color: '#FFFFFF',
+  },
+  mapModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  mapModalContent: {
+    backgroundColor: Colors.light.card,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 16,
+    height: '70%',
+  },
+  mapView: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  mapActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingTop: 12,
+  },
+  mapActionButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    backgroundColor: Colors.light.background,
+  },
+  mapActionPrimary: {
+    backgroundColor: Colors.light.tint,
+    borderColor: Colors.light.tint,
+  },
+  mapActionText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.light.text,
+  },
+  mapActionTextPrimary: {
     color: '#FFFFFF',
   },
 });

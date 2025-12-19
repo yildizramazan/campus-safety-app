@@ -51,6 +51,7 @@ export const [NotificationsProvider, useNotifications] = createContextHook(() =>
           status: data.status,
           createdBy: data.createdBy,
           createdByName: data.createdByName,
+          createdByDepartment: data.createdByDepartment,
           createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : data.createdAt,
           updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : data.updatedAt,
           photoUrl: data.photoUrl,
@@ -146,11 +147,13 @@ export const [NotificationsProvider, useNotifications] = createContextHook(() =>
     if (!user) throw new Error('User not authenticated');
 
     const timestamp = new Date().toISOString();
+    const department = user.department?.trim();
     const newNotificationData: Omit<Notification, 'id'> = {
       ...data,
       status: 'open',
       createdBy: user.id,
       createdByName: user.fullName,
+      ...(department ? { createdByDepartment: department } : {}),
       createdAt: timestamp,
       updatedAt: timestamp,
       followedBy: [user.id],
@@ -163,33 +166,42 @@ export const [NotificationsProvider, useNotifications] = createContextHook(() =>
 
   const updateNotificationStatus = useCallback(async (id: string, status: NotificationStatus) => {
     try {
+      if (!user || user.role !== 'admin') {
+        throw new Error('Only admins can update notification status');
+      }
       await updateNotificationInDb(id, { status, updatedAt: new Date().toISOString() });
       // State update handled by listener
     } catch (error) {
       console.error("Failed to update status", error);
       throw error;
     }
-  }, []);
+  }, [user]);
 
   const updateNotification = useCallback(async (id: string, updates: Partial<Notification>) => {
     try {
+      if (!user || user.role !== 'admin') {
+        throw new Error('Only admins can update notifications');
+      }
       await updateNotificationInDb(id, { ...updates, updatedAt: new Date().toISOString() });
       // State update handled by listener
     } catch (error) {
       console.error("Failed to update notification", error);
       throw error;
     }
-  }, []);
+  }, [user]);
 
   const deleteNotification = useCallback(async (id: string) => {
     try {
+      if (!user || user.role !== 'admin') {
+        throw new Error('Only admins can delete notifications');
+      }
       await deleteNotificationFromDb(id);
       // State update handled by listener
     } catch (error) {
       console.error("Failed to delete notification", error);
       throw error;
     }
-  }, []);
+  }, [user]);
 
   const toggleFollow = useCallback(async (notificationId: string) => {
     if (!user) return;

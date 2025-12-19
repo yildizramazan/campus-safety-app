@@ -2,7 +2,7 @@ import Colors from '@/constants/colors';
 import { NOTIFICATION_TYPES, STATUS_COLORS, STATUS_LABELS } from '@/constants/notifications';
 import { useAuth } from '@/contexts/auth';
 import { useNotifications } from '@/contexts/notifications';
-import { Notification, NotificationStatus, NotificationType } from '@/types';
+import { EmergencyAlert, Notification, NotificationStatus, NotificationType } from '@/types';
 import { Href, Stack, useRouter } from 'expo-router';
 import { Filter, HeartPulse, Leaf, Search, SearchIcon, Settings, ShieldAlert, Wrench } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
@@ -26,17 +26,21 @@ const ICON_MAP = {
 
 export default function FeedScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, preferences } = useAuth();
   const { notifications, emergencyAlerts, getFollowedNotifications } = useNotifications();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<NotificationType | 'all'>('all');
   const [selectedStatus, setSelectedStatus] = useState<NotificationStatus | 'all'>('all');
   const [showFollowedOnly, setShowFollowedOnly] = useState(false);
+  const [showJurisdictionOnly, setShowJurisdictionOnly] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   const filteredNotifications = useMemo(() => {
     let filtered = showFollowedOnly ? getFollowedNotifications() : notifications;
+    const enabledTypes = preferences.typePreferences ?? {};
+
+    filtered = filtered.filter(n => enabledTypes[n.type] !== false);
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -55,8 +59,30 @@ export default function FeedScreen() {
       filtered = filtered.filter(n => n.status === selectedStatus);
     }
 
+    if (showJurisdictionOnly && user?.role === 'admin') {
+      const department = user.department.trim();
+      if (department) {
+        filtered = filtered.filter(n => n.createdByDepartment === department);
+      }
+    }
+
     return filtered;
-  }, [notifications, searchQuery, selectedType, selectedStatus, showFollowedOnly, getFollowedNotifications]);
+  }, [
+    notifications,
+    searchQuery,
+    selectedType,
+    selectedStatus,
+    showFollowedOnly,
+    showJurisdictionOnly,
+    getFollowedNotifications,
+    preferences.typePreferences,
+    user,
+  ]);
+
+  const emergencyPreview = useMemo(
+    () => emergencyAlerts.slice(0, 3),
+    [emergencyAlerts]
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -74,15 +100,23 @@ export default function FeedScreen() {
     return `${Math.floor(seconds / 86400)}d ago`;
   };
 
-  const renderEmergencyAlert = (alert: any) => (
-    <View key={alert.id} style={styles.emergencyCard}>
+  const renderEmergencyAlert = ({ item }: { item: EmergencyAlert }) => (
+    <View style={styles.emergencyCard}>
       <View style={styles.emergencyHeader}>
-        <ShieldAlert size={24} color="#DC2626" />
-        <Text style={styles.emergencyTitle}>EMERGENCY ALERT</Text>
+        <View style={styles.emergencyHeaderLeft}>
+          <View style={styles.emergencyIcon}>
+            <ShieldAlert size={14} color="#DC2626" />
+          </View>
+          <Text style={styles.emergencyLabel}>Emergency</Text>
+        </View>
+        <Text style={styles.emergencyTime}>{getTimeAgo(item.createdAt)}</Text>
       </View>
-      <Text style={styles.emergencySubject}>{alert.title}</Text>
-      <Text style={styles.emergencyMessage}>{alert.message}</Text>
-      <Text style={styles.emergencyTime}>{getTimeAgo(alert.createdAt)}</Text>
+      <Text style={styles.emergencySubject} numberOfLines={1}>
+        {item.title}
+      </Text>
+      <Text style={styles.emergencyMessage} numberOfLines={2}>
+        {item.message}
+      </Text>
     </View>
   );
 
@@ -112,7 +146,7 @@ export default function FeedScreen() {
           </View>
         </View>
 
-        <Text style={styles.cardTitle} numberOfLines={2}>
+        <Text style={styles.cardTitle} numberOfLines={1}>
           {item.title}
         </Text>
         <Text style={styles.cardDescription} numberOfLines={2}>
@@ -120,7 +154,9 @@ export default function FeedScreen() {
         </Text>
 
         <View style={styles.cardFooter}>
-          <Text style={styles.cardLocation}>{item.location.address || 'Campus Area'}</Text>
+          <Text style={styles.cardLocation} numberOfLines={1}>
+            {item.location.address || 'Campus Area'}
+          </Text>
           {isFollowed && (
             <View style={styles.followingBadge}>
               <Text style={styles.followingText}>Following</Text>
@@ -132,11 +168,27 @@ export default function FeedScreen() {
   };
 
   const renderHeader = () => (
-    <View>
-      {/* Emergency Alerts Section */}
-      {emergencyAlerts.length > 0 && (
-        <View style={styles.alertsContainer}>
-          {emergencyAlerts.map(alert => renderEmergencyAlert(alert))}
+    <View style={styles.listHeader}>
+      {emergencyPreview.length > 0 && (
+        <View style={styles.emergencySection}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Emergency</Text>
+            <TouchableOpacity
+              style={styles.viewAllButton}
+              onPress={() => router.push('/alerts' as Href)}
+              testID="view-all-emergency"
+            >
+              <Text style={styles.viewAllText}>View all</Text>
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={emergencyPreview}
+            renderItem={renderEmergencyAlert}
+            keyExtractor={item => item.id}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.emergencyList}
+          />
         </View>
       )}
 
@@ -225,6 +277,19 @@ export default function FeedScreen() {
                 Following
               </Text>
             </TouchableOpacity>
+            {user?.role === 'admin' && user.department.trim() ? (
+              <TouchableOpacity
+                style={[
+                  styles.filterChip,
+                  showJurisdictionOnly && styles.filterChipActive,
+                ]}
+                onPress={() => setShowJurisdictionOnly(!showJurisdictionOnly)}
+              >
+                <Text style={[styles.filterChipText, showJurisdictionOnly && styles.filterChipTextActive]}>
+                  Jurisdiction
+                </Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         </View>
       )}
@@ -284,9 +349,38 @@ const styles = StyleSheet.create({
   headerButton: {
     marginRight: 16,
   },
+  listHeader: {
+    gap: 16,
+    paddingBottom: 12,
+  },
+  emergencySection: {
+    gap: 12,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700' as const,
+    color: Colors.light.text,
+  },
+  viewAllButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  viewAllText: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: Colors.light.tint,
+  },
+  emergencyList: {
+    gap: 12,
+    paddingBottom: 4,
+  },
   searchContainer: {
     flexDirection: 'row',
-    padding: 16,
     gap: 12,
   },
   searchBar: {
@@ -317,8 +411,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.light.border,
   },
   filtersContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
     gap: 12,
   },
   filterRow: {
@@ -347,14 +439,16 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   listContent: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 24,
     gap: 12,
   },
   card: {
     backgroundColor: Colors.light.card,
-    borderRadius: 16,
-    padding: 16,
-    gap: 12,
+    borderRadius: 14,
+    padding: 14,
+    gap: 10,
     borderWidth: 1,
     borderColor: Colors.light.border,
   },
@@ -364,9 +458,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -374,39 +468,39 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardType: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600' as const,
     color: Colors.light.text,
   },
   cardTime: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#6B7280',
     marginTop: 2,
   },
   statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
   },
   statusText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600' as const,
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700' as const,
     color: Colors.light.text,
   },
   cardDescription: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#6B7280',
-    lineHeight: 20,
+    lineHeight: 18,
   },
   cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 8,
+    paddingTop: 6,
     borderTopWidth: 1,
     borderTopColor: Colors.light.border,
   },
@@ -443,47 +537,53 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'center',
   },
-  alertsContainer: {
-    padding: 16,
-    paddingBottom: 0,
-    gap: 12,
-  },
   emergencyCard: {
-    backgroundColor: '#FEF2F2',
-    borderRadius: 12,
-    padding: 16,
+    width: 260,
+    backgroundColor: Colors.light.card,
+    borderRadius: 14,
+    padding: 14,
     borderWidth: 1,
-    borderColor: '#F87171',
-    borderLeftWidth: 6,
+    borderColor: Colors.light.border,
+    borderLeftWidth: 4,
     borderLeftColor: '#DC2626',
+    gap: 6,
   },
   emergencyHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+    justifyContent: 'space-between',
   },
-  emergencyTitle: {
-    fontSize: 14,
-    fontWeight: '800',
+  emergencyHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  emergencyIcon: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FEE2E2',
+  },
+  emergencyLabel: {
+    fontSize: 12,
+    fontWeight: '700' as const,
     color: '#DC2626',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   emergencySubject: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#7F1D1D',
-    marginBottom: 4,
+    fontSize: 15,
+    fontWeight: '700' as const,
+    color: Colors.light.text,
   },
   emergencyMessage: {
-    fontSize: 14,
-    color: '#991B1B',
-    lineHeight: 20,
+    fontSize: 13,
+    color: '#6B7280',
+    lineHeight: 18,
   },
   emergencyTime: {
     fontSize: 11,
-    color: '#EF4444',
-    marginTop: 8,
-    textAlign: 'right',
+    color: '#9CA3AF',
   },
 });

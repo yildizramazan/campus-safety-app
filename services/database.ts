@@ -15,16 +15,34 @@ import {
 export const createUserProfile = async (profile: {
     uid: string;
     email: string;
-    fullName: string;
+    fullName?: string;
+    firstName?: string;
+    lastName?: string;
     department: string;
     role?: UserRole;
 }) => {
-    const { uid, email, fullName, department, role = 'user' } = profile;
+    const {
+        uid,
+        email,
+        fullName,
+        firstName,
+        lastName,
+        department,
+        role = 'user',
+    } = profile;
+    const firstNameClean = (firstName ?? '').trim();
+    const lastNameClean = (lastName ?? '').trim();
+    const fullNameClean =
+        (fullName ?? '').trim() ||
+        [firstNameClean, lastNameClean].filter(Boolean).join(' ') ||
+        email.split('@')[0];
 
     await setDoc(doc(db, 'users', uid), {
         uid,
         email,
-        fullName,
+        fullName: fullNameClean,
+        firstName: firstNameClean,
+        lastName: lastNameClean,
         department,
         role,
         createdAt: serverTimestamp(),
@@ -54,6 +72,8 @@ export const getUserProfile = async (userId: string): Promise<User | null> => {
         id: snapshot.id,
         email: data.email ?? '',
         fullName: data.fullName ?? '',
+        firstName: data.firstName ?? undefined,
+        lastName: data.lastName ?? undefined,
         department: data.department ?? '',
         role: (data.role as UserRole) ?? 'user',
         photoURL: typeof data.photoURL === 'string' ? data.photoURL : undefined,

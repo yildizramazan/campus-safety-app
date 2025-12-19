@@ -19,14 +19,15 @@ import {
 export default function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [department, setDepartment] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { register } = useAuth();
   const router = useRouter();
 
   const handleRegister = async () => {
-    if (!email || !password || !fullName || !department) {
+    if (!email || !password || !firstName || !lastName || !department) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
@@ -42,7 +43,7 @@ export default function RegisterScreen() {
     }
 
     setIsLoading(true);
-    const result = await register(email, password, fullName, department);
+    const result = await register(email, password, firstName, lastName, department);
     setIsLoading(false);
 
     if (!result.success) {
@@ -71,15 +72,28 @@ export default function RegisterScreen() {
 
         <View style={styles.form}>
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Full Name</Text>
+            <Text style={styles.label}>Name</Text>
             <TextInput
               style={styles.input}
-              placeholder="Enter your full name"
+              placeholder="Enter your name"
               placeholderTextColor="#9CA3AF"
-              value={fullName}
-              onChangeText={setFullName}
+              value={firstName}
+              onChangeText={setFirstName}
               autoCapitalize="words"
-              testID="fullname-input"
+              testID="firstname-input"
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Surname</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Enter your surname"
+              placeholderTextColor="#9CA3AF"
+              value={lastName}
+              onChangeText={setLastName}
+              autoCapitalize="words"
+              testID="lastname-input"
             />
           </View>
 

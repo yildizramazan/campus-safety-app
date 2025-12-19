@@ -1,6 +1,7 @@
 import { auth } from '@/config/firebaseConfig';
+import { NOTIFICATION_TYPES } from '@/constants/notifications';
 import { createUserProfile, getUserProfile } from '@/services/database';
-import { NotificationPreferences, User } from '@/types';
+import { NotificationPreferences, NotificationType, User } from '@/types';
 import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -21,6 +22,14 @@ interface AuthState {
 
 type AuthResult = { success: boolean; error?: string; message?: string };
 
+const defaultTypePreferences = NOTIFICATION_TYPES.reduce(
+  (acc, type) => {
+    acc[type.value] = true;
+    return acc;
+  },
+  {} as Record<NotificationType, boolean>
+);
+
 const isProbablyOfflineError = (error: any) => {
   const code = error?.code;
   const message = String(error?.message ?? '').toLowerCase();
@@ -40,15 +49,21 @@ const buildFallbackUser = (
   const createdAt = creationTime
     ? new Date(creationTime).toISOString()
     : new Date().toISOString();
+  const fullName =
+    overrides.fullName ??
+    firebaseUser.displayName ??
+    firebaseUser.email?.split('@')[0] ??
+    'User';
+  const nameParts = fullName.trim().split(' ').filter(Boolean);
+  const firstName = overrides.firstName ?? nameParts[0] ?? '';
+  const lastName = overrides.lastName ?? nameParts.slice(1).join(' ');
 
   return {
     id: firebaseUser.uid,
     email: firebaseUser.email ?? overrides.email ?? '',
-    fullName:
-      overrides.fullName ??
-      firebaseUser.displayName ??
-      firebaseUser.email?.split('@')[0] ??
-      'User',
+    fullName,
+    firstName,
+    lastName,
     department: overrides.department ?? '',
     role: overrides.role ?? 'user',
     createdAt: overrides.createdAt ?? createdAt,
@@ -64,8 +79,43 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       pushEnabled: true,
       emailEnabled: true,
       emergencyAlerts: true,
+      typePreferences: defaultTypePreferences,
     },
   });
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadPreferences = async () => {
+      try {
+        const stored = await AsyncStorage.getItem('preferences');
+        if (!stored) return;
+        const parsed = JSON.parse(stored) as Partial<NotificationPreferences>;
+        const typePreferences = {
+          ...defaultTypePreferences,
+          ...(parsed.typePreferences ?? {}),
+        };
+        const nextPreferences: NotificationPreferences = {
+          pushEnabled: parsed.pushEnabled ?? true,
+          emailEnabled: parsed.emailEnabled ?? true,
+          emergencyAlerts: parsed.emergencyAlerts ?? true,
+          typePreferences,
+        };
+        if (isMounted) {
+          setState(prev => ({
+            ...prev,
+            preferences: nextPreferences,
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to load preferences:', error);
+      }
+    };
+
+    loadPreferences();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
@@ -89,8 +139,6 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
               isAuthenticated: true,
               isLoading: false,
             }));
-          } else {
-            console.warn('User profile not found for', firebaseUser.uid);
           }
         } catch (error: any) {
           console.error(
@@ -111,10 +159,11 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
+      const fallbackUser = buildFallbackUser(firebaseUser, { email });
 
       try {
         const userProfile = await getUserProfile(firebaseUser.uid);
-        const resolvedUser = userProfile ?? buildFallbackUser(firebaseUser);
+        const resolvedUser = userProfile ?? fallbackUser;
 
         setState(prev => ({
           ...prev,
@@ -124,11 +173,23 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
         }));
 
         if (!userProfile) {
-          return {
-            success: true,
-            message:
-              'Signed in, but your profile could not be found yet. Some features may be limited until it is created.',
-          };
+          try {
+            await createUserProfile({
+              uid: firebaseUser.uid,
+              email: fallbackUser.email,
+              fullName: fallbackUser.fullName,
+              firstName: fallbackUser.firstName,
+              lastName: fallbackUser.lastName,
+              department: fallbackUser.department,
+              role: fallbackUser.role,
+            });
+          } catch (profileError: any) {
+            console.error(
+              'Profile write error:',
+              profileError?.code,
+              profileError?.message
+            );
+          }
         }
 
         return { success: true };
@@ -141,17 +202,12 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
         setState(prev => ({
           ...prev,
-          user: buildFallbackUser(firebaseUser),
+          user: fallbackUser,
           isAuthenticated: true,
           isLoading: false,
         }));
 
-        return {
-          success: true,
-          message: isProbablyOfflineError(profileError)
-            ? 'Signed in, but your profile could not be loaded while offline. Some features may be limited until you are online.'
-            : 'Signed in, but your profile could not be loaded. Please try again shortly.',
-        };
+        return { success: true };
       }
     } catch (error: any) {
       console.error('Login error:', error?.code, error?.message);
@@ -172,17 +228,21 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   const register = useCallback(async (
     email: string,
     password: string,
-    fullName: string,
+    firstName: string,
+    lastName: string,
     department: string
   ): Promise<AuthResult> => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
+      const fullName = `${firstName} ${lastName}`.trim();
 
       const newUser: User = {
         id: firebaseUser.uid,
         email,
         fullName,
+        firstName,
+        lastName,
         department,
         role: 'user', // Default role
         createdAt: new Date().toISOString(),
@@ -202,6 +262,8 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
           uid: firebaseUser.uid,
           email,
           fullName,
+          firstName,
+          lastName,
           department,
           role: 'user',
         });
@@ -250,10 +312,17 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
 
   const updatePreferences = useCallback(async (newPreferences: NotificationPreferences) => {
     try {
-      await AsyncStorage.setItem('preferences', JSON.stringify(newPreferences));
+      const mergedPreferences = {
+        ...newPreferences,
+        typePreferences: {
+          ...defaultTypePreferences,
+          ...newPreferences.typePreferences,
+        },
+      };
+      await AsyncStorage.setItem('preferences', JSON.stringify(mergedPreferences));
       setState(prev => ({
         ...prev,
-        preferences: newPreferences,
+        preferences: mergedPreferences,
       }));
     } catch (error) {
       console.error('Failed to update preferences:', error);

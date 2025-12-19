@@ -1,5 +1,6 @@
 import Colors from '@/constants/colors';
 import { NOTIFICATION_TYPES, STATUS_COLORS, STATUS_LABELS } from '@/constants/notifications';
+import { useAuth } from '@/contexts/auth';
 import { useNotifications } from '@/contexts/notifications';
 import { Notification, NotificationType } from '@/types';
 import * as Location from 'expo-location';
@@ -26,6 +27,7 @@ const ATAUNI_LOCATION = {
 
 export default function MapScreen() {
   const router = useRouter();
+  const { preferences } = useAuth();
   const { notifications, refreshNotifications, loading } = useNotifications();
   const [selectedType, setSelectedType] = useState<NotificationType | 'all'>('all');
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
@@ -39,11 +41,13 @@ export default function MapScreen() {
   }, []);
 
   const filteredNotifications = useMemo(() => {
+    const enabledTypes = preferences.typePreferences ?? {};
+    const visible = notifications.filter(n => enabledTypes[n.type] !== false);
     if (selectedType === 'all') {
-      return notifications;
+      return visible;
     }
-    return notifications.filter(n => n.type === selectedType);
-  }, [notifications, selectedType]);
+    return visible.filter(n => n.type === selectedType);
+  }, [notifications, preferences.typePreferences, selectedType]);
 
   const handleMarkerPress = (notification: Notification) => {
     setSelectedNotification(notification);

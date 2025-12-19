@@ -8,6 +8,8 @@ export interface User {
   id: string;
   email: string;
   fullName: string;
+  firstName?: string;
+  lastName?: string;
   role: UserRole;
   department: string;
   photoURL?: string;
@@ -29,6 +31,7 @@ export interface Notification {
   status: NotificationStatus;
   createdBy: string;
   createdByName: string;
+  createdByDepartment?: string;
   createdAt: string;
   updatedAt: string;
   photoUrl?: string | null;
@@ -47,4 +50,5 @@ export interface NotificationPreferences {
   pushEnabled: boolean;
   emailEnabled: boolean;
   emergencyAlerts: boolean;
+  typePreferences: Record<NotificationType, boolean>;
 }

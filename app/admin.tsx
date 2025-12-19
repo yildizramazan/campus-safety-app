@@ -210,8 +210,9 @@ export default function AdminPanelScreen() {
                       {notification.title}
                     </Text>
                     <Text style={styles.notificationMeta}>
-                      By {notification.createdByName} • {typeConfig?.label}
+                      By {notification.createdByName} - {typeConfig?.label}
                       {'\n'}{notification.location?.address || 'No Location Provided'}
+                      {notification.createdByDepartment ? `\nDept: ${notification.createdByDepartment}` : ''}
                     </Text>
                   </View>
                   <View style={[styles.statusBadge, { backgroundColor: `${STATUS_COLORS[notification.status]}20` }]}>
