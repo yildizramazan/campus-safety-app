@@ -1,5 +1,5 @@
-const tintColorLight = '#2563EB';
-const tintColorDark = '#60A5FA';
+const tintColorLight = '#1C1C4E'; // Atatürk Uni Navy Blue
+const tintColorDark = '#D4AF37'; // Atatürk Uni Gold
 
 export default {
   light: {

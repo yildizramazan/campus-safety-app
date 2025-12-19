@@ -1,10 +1,11 @@
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/auth';
 import { useRouter } from 'expo-router';
-import { Shield } from 'lucide-react-native';
+// import { Shield } from 'lucide-react-native';
 import { useState } from 'react';
 import {
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -60,7 +61,7 @@ export default function RegisterScreen() {
       >
         <View style={styles.header}>
           <View style={styles.iconContainer}>
-            <Shield size={48} color={Colors.light.tint} strokeWidth={2} />
+            <Image source={require('@/assets/images/logo.png')} style={{ width: 60, height: 60 }} resizeMode="contain" />
           </View>
           <Text style={styles.title}>Create Account</Text>
           <Text style={styles.subtitle}>Join Campus Safety Network</Text>
@@ -163,7 +164,7 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#EEF2FF',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
