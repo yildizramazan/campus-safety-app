@@ -2,9 +2,11 @@ import Colors from '@/constants/colors';
 import { NOTIFICATION_TYPES, STATUS_COLORS, STATUS_LABELS } from '@/constants/notifications';
 import { useAuth } from '@/contexts/auth';
 import { useNotifications } from '@/contexts/notifications';
+import { getNotificationLocalImage } from '@/services/localImages';
 import { NotificationStatus } from '@/types';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { Clock, Heart, HeartPulse, Leaf, MapPin, Search, ShieldAlert, User as UserIcon, Wrench } from 'lucide-react-native';
+import { useEffect, useState } from 'react';
 import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 
@@ -22,6 +24,20 @@ export default function NotificationDetailScreen() {
   const { getNotificationById, toggleFollow, updateNotificationStatus } = useNotifications();
 
   const notification = getNotificationById(id as string);
+  const [localImageUri, setLocalImageUri] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (notification?.id) {
+      getNotificationLocalImage(notification.id)
+        .then(uri => {
+          setLocalImageUri(uri);
+        })
+        .catch(error => {
+          console.error('Error loading local image:', error);
+          setLocalImageUri(null);
+        });
+    }
+  }, [notification?.id]);
 
   if (!notification) {
     return (
@@ -99,9 +115,10 @@ export default function NotificationDetailScreen() {
           <Text style={styles.title}>{notification.title}</Text>
           <Text style={styles.description}>{notification.description}</Text>
 
-          {notification.photoUrl && (
+          {/* Show local image if available, otherwise show Firestore photoUrl (for backward compatibility) */}
+          {(localImageUri || notification.photoUrl) && (
             <Image
-              source={{ uri: notification.photoUrl }}
+              source={{ uri: localImageUri || notification.photoUrl || '' }}
               style={styles.evidenceImage}
               resizeMode="cover"
             />

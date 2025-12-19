@@ -1,7 +1,6 @@
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/auth';
 import { useRouter } from 'expo-router';
-// import { Shield } from 'lucide-react-native';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { useState } from 'react';
 import {

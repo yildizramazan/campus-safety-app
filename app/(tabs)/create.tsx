@@ -2,13 +2,11 @@ import Colors from '@/constants/colors';
 import { NOTIFICATION_TYPES } from '@/constants/notifications';
 import { useAuth } from '@/contexts/auth';
 import { useNotifications } from '@/contexts/notifications';
-import { uploadNotificationImage } from '@/services/storage';
 import { NotificationType } from '@/types';
-import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
-import { Camera, Check, HeartPulse, Leaf, MapPin, Search, ShieldAlert, Wrench } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
+import { Check, HeartPulse, Leaf, MapPin, Search, ShieldAlert, Wrench } from 'lucide-react-native';
+import { useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -47,21 +45,11 @@ export default function CreateNotificationScreen() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState<{ latitude: number; longitude: number; address?: string } | null>(null);
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
   const [mapSelection, setMapSelection] = useState<{ latitude: number; longitude: number } | null>(null);
   const [mapRegion, setMapRegion] = useState<Region>(DEFAULT_REGION);
-
-  useEffect(() => {
-    if (Platform.OS !== 'web') {
-      (async () => {
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
-        await ImagePicker.requestCameraPermissionsAsync();
-      })();
-    }
-  }, []);
 
   const handleGetLocation = async () => {
     try {
@@ -99,25 +87,6 @@ export default function CreateNotificationScreen() {
       Alert.alert('Error', 'Failed to get your location');
     } finally {
       setIsLoadingLocation(false);
-    }
-  };
-
-  const handlePickImage = async () => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.8,
-      });
-
-      if (!result.canceled) {
-        const uri = result.assets?.[0]?.uri;
-        if (uri) setPhotoUri(uri);
-      }
-    } catch (error) {
-      console.error('Image picker error:', error);
-      Alert.alert('Error', 'Failed to pick image');
     }
   };
 
@@ -191,18 +160,12 @@ export default function CreateNotificationScreen() {
       const locationPayload = addressClean
         ? { ...location, address: addressClean }
         : { latitude: location.latitude, longitude: location.longitude };
-      let photoUrlClean: string | undefined;
-      if (photoUri) {
-        const uploadedUrl = await uploadNotificationImage(user.id, photoUri);
-        photoUrlClean = uploadedUrl.trim();
-      }
 
       await createNotification({
         type: selectedType,
         title: title.trim(),
         description: description.trim(),
         location: locationPayload,
-        ...(photoUrlClean ? { photoUrl: photoUrlClean } : {}),
       });
 
       Alert.alert(
@@ -215,7 +178,6 @@ export default function CreateNotificationScreen() {
               setTitle('');
               setDescription('');
               setLocation(null);
-              setPhotoUri(null);
               router.back();
             },
           },
@@ -331,23 +293,6 @@ export default function CreateNotificationScreen() {
             <Text style={styles.coordinates}>
               {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
             </Text>
-          )}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Photo (Optional)</Text>
-          <TouchableOpacity
-            style={styles.photoButton}
-            onPress={handlePickImage}
-            testID="photo-button"
-          >
-            <Camera size={20} color={Colors.light.tint} />
-            <Text style={styles.photoButtonText}>
-              {photoUri ? 'Change Photo' : 'Add Photo'}
-            </Text>
-          </TouchableOpacity>
-          {photoUri && (
-            <Text style={styles.photoSuccess}>Photo attached</Text>
           )}
         </View>
 
@@ -517,25 +462,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600' as const,
     color: Colors.light.tint,
-  },
-  photoButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: Colors.light.card,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    borderRadius: 12,
-    padding: 16,
-  },
-  photoButtonText: {
-    fontSize: 16,
-    color: Colors.light.text,
-  },
-  photoSuccess: {
-    fontSize: 14,
-    color: Colors.light.success,
-    fontWeight: '600' as const,
   },
   submitButton: {
     backgroundColor: Colors.light.tint,

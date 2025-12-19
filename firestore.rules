@@ -15,7 +15,16 @@ service cloud.firestore {
       allow create: if signedIn() && request.auth.uid == uid &&
         request.resource.data.role == 'user';
       allow update: if signedIn() && request.auth.uid == uid &&
-        request.resource.data.role == resource.data.role;
+        // Role cannot be changed
+        request.resource.data.role == resource.data.role &&
+        // Email cannot be changed
+        request.resource.data.email == resource.data.email &&
+        // UID cannot be changed
+        request.resource.data.uid == resource.data.uid &&
+        // Only allow updates to firstName, lastName, fullName, department, updatedAt, photoURL
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'firstName', 'lastName', 'fullName', 'department', 'updatedAt', 'photoURL'
+        ]);
     }
 
     match /notifications/{id} {

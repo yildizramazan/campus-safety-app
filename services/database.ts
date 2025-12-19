@@ -81,8 +81,40 @@ export const getUserProfile = async (userId: string): Promise<User | null> => {
     };
 };
 
-export const updateUserProfilePhoto = async (uid: string, photoURL: string) => {
-    await updateDoc(doc(db, 'users', uid), { photoURL });
+export const updateUserProfileFields = async (
+    uid: string,
+    fields: {
+        firstName: string;
+        lastName: string;
+        department: string;
+    }
+): Promise<void> => {
+    const firstNameClean = fields.firstName.trim();
+    const lastNameClean = fields.lastName.trim();
+    const departmentClean = fields.department.trim();
+
+    // Validation: ensure no empty strings
+    if (!firstNameClean || firstNameClean.length < 2) {
+        throw new Error('First name must be at least 2 characters');
+    }
+    if (!lastNameClean || lastNameClean.length < 2) {
+        throw new Error('Last name must be at least 2 characters');
+    }
+    if (!departmentClean) {
+        throw new Error('Department is required');
+    }
+
+    // Compute fullName from firstName + lastName
+    const fullNameClean = [firstNameClean, lastNameClean].filter(Boolean).join(' ');
+
+    // Only write non-empty, valid values
+    await updateDoc(doc(db, 'users', uid), {
+        firstName: firstNameClean,
+        lastName: lastNameClean,
+        fullName: fullNameClean,
+        department: departmentClean,
+        updatedAt: serverTimestamp(),
+    });
 };
 
 export const createNotificationInDb = async (notification: Omit<Notification, 'id'>): Promise<string> => {

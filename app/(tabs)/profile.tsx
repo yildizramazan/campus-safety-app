@@ -2,21 +2,21 @@ import Colors from '@/constants/colors';
 import { NOTIFICATION_TYPES } from '@/constants/notifications';
 import { useAuth } from '@/contexts/auth';
 import { useNotifications } from '@/contexts/notifications';
-import { updateUserProfilePhoto } from '@/services/database';
-import { uploadProfileImage } from '@/services/storage';
-import * as ImagePicker from 'expo-image-picker';
+import { updateUserProfileFields } from '@/services/database';
 import { Href, useRouter } from 'expo-router';
-import { Bell, Building, LogOut, Mail, Shield, User as UserIcon } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
+import { Bell, Building, Edit, LogOut, Mail, Shield, User as UserIcon, X } from 'lucide-react-native';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
+  KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
@@ -28,64 +28,14 @@ export default function ProfileScreen() {
 
   const followedNotifications = getFollowedNotifications();
   const followedCount = followedNotifications.length;
-  const [imageUri, setImageUri] = useState<string | null>(null);
-  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [editFirstName, setEditFirstName] = useState('');
+  const [editLastName, setEditLastName] = useState('');
+  const [editDepartment, setEditDepartment] = useState('');
   const nameParts = user?.fullName.trim().split(' ').filter(Boolean) ?? [];
   const firstName = user?.firstName?.trim() || nameParts[0] || '';
   const lastName = user?.lastName?.trim() || nameParts.slice(1).join(' ');
-
-  useEffect(() => {
-    setImageUri(user?.photoURL ?? null);
-  }, [user?.photoURL]);
-
-  useEffect(() => {
-    if (Platform.OS === 'web') return;
-    ImagePicker.requestMediaLibraryPermissionsAsync().catch((error) => {
-      console.error('Media library permission error:', error);
-    });
-  }, []);
-
-  const handlePickProfileImage = async () => {
-    if (!user || isUploadingPhoto) return;
-
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.9,
-      });
-
-      if (result.canceled) return;
-      const uri = result.assets?.[0]?.uri;
-      if (!uri) return;
-
-      // Show local preview immediately
-      setImageUri(uri);
-
-      setIsUploadingPhoto(true);
-      const downloadURL = await uploadProfileImage(user.id, uri);
-
-      // Swap preview to stable URL and update auth context immediately for screen re-mounts.
-      setImageUri(downloadURL);
-      updateProfile({ photoURL: downloadURL });
-
-      try {
-        await updateUserProfilePhoto(user.id, downloadURL);
-      } catch (error: any) {
-        console.error('Failed to save profile photo URL:', error?.code, error?.message);
-        Alert.alert(
-          'Saved Locally',
-          'Your photo was uploaded, but we could not save it to your profile yet. It may not persist until you are back online.'
-        );
-      }
-    } catch (error) {
-      console.error('Profile image picker/upload error:', error);
-      Alert.alert('Error', 'Failed to update profile photo. Please try again.');
-    } finally {
-      setIsUploadingPhoto(false);
-    }
-  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -102,6 +52,67 @@ export default function ProfileScreen() {
     );
   };
 
+  const handleOpenEditModal = () => {
+    if (!user) return;
+    // Pre-fill with current values, handling backward compatibility
+    const currentFirstName = user.firstName?.trim() || firstName || '';
+    const currentLastName = user.lastName?.trim() || lastName || '';
+    setEditFirstName(currentFirstName);
+    setEditLastName(currentLastName);
+    setEditDepartment(user.department?.trim() || '');
+    setShowEditModal(true);
+  };
+
+  const handleSaveProfile = async () => {
+    if (!user) return;
+
+    // Validation
+    const firstNameTrimmed = editFirstName.trim();
+    const lastNameTrimmed = editLastName.trim();
+    const departmentTrimmed = editDepartment.trim();
+
+    if (!firstNameTrimmed || firstNameTrimmed.length < 2) {
+      Alert.alert('Validation Error', 'First name must be at least 2 characters');
+      return;
+    }
+    if (!lastNameTrimmed || lastNameTrimmed.length < 2) {
+      Alert.alert('Validation Error', 'Last name must be at least 2 characters');
+      return;
+    }
+    if (!departmentTrimmed) {
+      Alert.alert('Validation Error', 'Department is required');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await updateUserProfileFields(user.id, {
+        firstName: firstNameTrimmed,
+        lastName: lastNameTrimmed,
+        department: departmentTrimmed,
+      });
+
+      // Update local auth context
+      const fullName = [firstNameTrimmed, lastNameTrimmed].filter(Boolean).join(' ');
+      updateProfile({
+        firstName: firstNameTrimmed,
+        lastName: lastNameTrimmed,
+        fullName,
+        department: departmentTrimmed,
+      });
+
+      setShowEditModal(false);
+      Alert.alert('Success', 'Your profile has been updated successfully.');
+    } catch (error: any) {
+      console.error('Failed to update profile:', error);
+      const errorMessage =
+        error?.message || 'Failed to update profile. Please try again.';
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (!user) {
     return (
       <View style={styles.container}>
@@ -114,22 +125,9 @@ export default function ProfileScreen() {
     <View style={styles.container}>
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.avatar}
-            onPress={handlePickProfileImage}
-            disabled={isUploadingPhoto}
-          >
-            {imageUri ? (
-              <Image source={{ uri: imageUri }} style={styles.avatarImage} />
-            ) : (
-              <UserIcon size={48} color="#FFFFFF" />
-            )}
-            {isUploadingPhoto && (
-              <View style={styles.avatarOverlay}>
-                <ActivityIndicator color="#FFFFFF" />
-              </View>
-            )}
-          </TouchableOpacity>
+          <View style={styles.avatar}>
+            <UserIcon size={48} color="#FFFFFF" />
+          </View>
           <Text style={styles.name}>{user.fullName}</Text>
           {user.role === 'admin' && (
             <View style={styles.roleBadge}>
@@ -142,7 +140,17 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account Information</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Account Information</Text>
+            <TouchableOpacity
+              onPress={handleOpenEditModal}
+              style={styles.editButton}
+              testID="edit-profile-button"
+            >
+              <Edit size={18} color={Colors.light.tint} />
+              <Text style={styles.editButtonText}>Edit</Text>
+            </TouchableOpacity>
+          </View>
 
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
@@ -358,6 +366,125 @@ export default function ProfileScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      {/* Edit Profile Modal */}
+      <Modal
+        visible={showEditModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowEditModal(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Edit Account Information</Text>
+              <TouchableOpacity
+                onPress={() => setShowEditModal(false)}
+                style={styles.closeButton}
+                disabled={isSaving}
+              >
+                <X size={24} color={Colors.light.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView 
+              style={styles.modalScroll} 
+              contentContainerStyle={styles.modalScrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.modalForm}>
+                <View style={styles.modalInputContainer}>
+                  <Text style={styles.modalLabel}>First Name *</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="Enter your first name"
+                    placeholderTextColor="#9CA3AF"
+                    value={editFirstName}
+                    onChangeText={setEditFirstName}
+                    autoCapitalize="words"
+                    editable={!isSaving}
+                    testID="edit-firstname-input"
+                  />
+                </View>
+
+                <View style={styles.modalInputContainer}>
+                  <Text style={styles.modalLabel}>Last Name *</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="Enter your last name"
+                    placeholderTextColor="#9CA3AF"
+                    value={editLastName}
+                    onChangeText={setEditLastName}
+                    autoCapitalize="words"
+                    editable={!isSaving}
+                    testID="edit-lastname-input"
+                  />
+                </View>
+
+                <View style={styles.modalInputContainer}>
+                  <Text style={styles.modalLabel}>Department *</Text>
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="e.g., Computer Engineering"
+                    placeholderTextColor="#9CA3AF"
+                    value={editDepartment}
+                    onChangeText={setEditDepartment}
+                    editable={!isSaving}
+                    testID="edit-department-input"
+                  />
+                </View>
+
+                <View style={styles.modalInputContainer}>
+                  <Text style={styles.modalLabel}>Email</Text>
+                  <TextInput
+                    style={[styles.modalInput, styles.modalInputDisabled]}
+                    value={user?.email || ''}
+                    editable={false}
+                    testID="edit-email-input"
+                  />
+                  <Text style={styles.modalHint}>Email cannot be changed</Text>
+                </View>
+
+                <View style={styles.modalInputContainer}>
+                  <Text style={styles.modalLabel}>Role</Text>
+                  <TextInput
+                    style={[styles.modalInput, styles.modalInputDisabled]}
+                    value={user?.role === 'admin' ? 'Administrator' : 'User'}
+                    editable={false}
+                    testID="edit-role-input"
+                  />
+                  <Text style={styles.modalHint}>Role cannot be changed</Text>
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonCancel]}
+                onPress={() => setShowEditModal(false)}
+                disabled={isSaving}
+              >
+                <Text style={styles.modalButtonCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonSave, isSaving && styles.modalButtonDisabled]}
+                onPress={handleSaveProfile}
+                disabled={isSaving}
+                testID="save-profile-button"
+              >
+                {isSaving ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={styles.modalButtonSaveText}>Save Changes</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -385,17 +512,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
-    overflow: 'hidden',
-  },
-  avatarImage: {
-    width: '100%',
-    height: '100%',
-  },
-  avatarOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   name: {
     fontSize: 24,
@@ -420,10 +536,32 @@ const styles = StyleSheet.create({
     padding: 20,
     gap: 16,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700' as const,
     color: Colors.light.text,
+  },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: Colors.light.card,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.light.tint,
+  },
+  editButtonText: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.light.tint,
   },
   infoCard: {
     backgroundColor: Colors.light.card,
@@ -552,5 +690,105 @@ const styles = StyleSheet.create({
     color: Colors.light.text,
     textAlign: 'center',
     padding: 20,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Colors.light.background,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '90%',
+    minHeight: '50%',
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.light.border,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700' as const,
+    color: Colors.light.text,
+  },
+  closeButton: {
+    padding: 4,
+  },
+  modalScroll: {
+    flex: 1,
+  },
+  modalScrollContent: {
+    flexGrow: 1,
+  },
+  modalForm: {
+    padding: 20,
+    gap: 20,
+  },
+  modalInputContainer: {
+    gap: 8,
+  },
+  modalLabel: {
+    fontSize: 14,
+    fontWeight: '600' as const,
+    color: Colors.light.text,
+  },
+  modalInput: {
+    backgroundColor: Colors.light.card,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    color: Colors.light.text,
+  },
+  modalInputDisabled: {
+    backgroundColor: '#F3F4F6',
+    color: '#6B7280',
+  },
+  modalHint: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: -4,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    gap: 12,
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: Colors.light.border,
+  },
+  modalButton: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalButtonCancel: {
+    backgroundColor: Colors.light.card,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  modalButtonCancelText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: Colors.light.text,
+  },
+  modalButtonSave: {
+    backgroundColor: Colors.light.tint,
+  },
+  modalButtonDisabled: {
+    opacity: 0.6,
+  },
+  modalButtonSaveText: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#FFFFFF',
   },
 });
