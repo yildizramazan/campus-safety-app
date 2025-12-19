@@ -19,7 +19,9 @@ import {
 import { useState } from 'react';
 import {
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -276,7 +278,10 @@ export default function AdminPanelScreen() {
         transparent
         onRequestClose={() => setShowEmergencyModal(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <AlertTriangle size={24} color="#DC2626" />
@@ -324,7 +329,7 @@ export default function AdminPanelScreen() {
               <Text style={styles.sendButtonText}>Send Alert</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <Modal
@@ -333,7 +338,10 @@ export default function AdminPanelScreen() {
         transparent
         onRequestClose={() => setShowEditModal(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Wrench size={24} color={Colors.light.tint} />
@@ -374,7 +382,7 @@ export default function AdminPanelScreen() {
               <Text style={styles.sendButtonText}>Save Changes</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

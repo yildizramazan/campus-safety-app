@@ -1,9 +1,12 @@
+import Colors from '@/constants/colors';
+import { NOTIFICATION_TYPES } from '@/constants/notifications';
+import { useAuth } from '@/contexts/auth';
+import { useNotifications } from '@/contexts/notifications';
 import { updateUserProfilePhoto } from '@/services/database';
 import { uploadProfileImage } from '@/services/storage';
-import { NOTIFICATION_TYPES } from '@/constants/notifications';
 import * as ImagePicker from 'expo-image-picker';
-import { Href, Stack, useRouter } from 'expo-router';
-import { User as UserIcon, Mail, Building, Shield, Bell, LogOut } from 'lucide-react-native';
+import { Href, useRouter } from 'expo-router';
+import { Bell, Building, LogOut, Mail, Shield, User as UserIcon } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -15,11 +18,8 @@ import {
   Switch,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
-import { useAuth } from '@/contexts/auth';
-import { useNotifications } from '@/contexts/notifications';
-import Colors from '@/constants/colors';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -112,37 +112,34 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <Stack.Screen options={{ title: 'Profile' }} />
-
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.avatar}
             onPress={handlePickProfileImage}
             disabled={isUploadingPhoto}
-            testID="change-photo-button"
           >
             {imageUri ? (
               <Image source={{ uri: imageUri }} style={styles.avatarImage} />
             ) : (
               <UserIcon size={48} color="#FFFFFF" />
-          )}
-          {isUploadingPhoto && (
-            <View style={styles.avatarOverlay}>
-              <ActivityIndicator color="#FFFFFF" />
+            )}
+            {isUploadingPhoto && (
+              <View style={styles.avatarOverlay}>
+                <ActivityIndicator color="#FFFFFF" />
+              </View>
+            )}
+          </TouchableOpacity>
+          <Text style={styles.name}>{user.fullName}</Text>
+          {user.role === 'admin' && (
+            <View style={styles.roleBadge}>
+              <Shield size={14} color="#7C3AED" />
+              <Text style={[styles.roleText, { color: '#7C3AED' }]}>
+                Administrator
+              </Text>
             </View>
           )}
-        </TouchableOpacity>
-        <Text style={styles.name}>{user.fullName}</Text>
-        {user.role === 'admin' && (
-          <View style={styles.roleBadge}>
-            <Shield size={14} color="#7C3AED" />
-            <Text style={[styles.roleText, { color: '#7C3AED' }]}>
-              Administrator
-            </Text>
-          </View>
-        )}
-      </View>
+        </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account Information</Text>
