@@ -1,8 +1,11 @@
+import Colors from '@/constants/colors';
+import { useAuth } from '@/contexts/auth';
+import { useNotifications } from '@/contexts/notifications';
 import { updateUserProfilePhoto } from '@/services/database';
 import { uploadProfileImage } from '@/services/storage';
 import * as ImagePicker from 'expo-image-picker';
 import { Stack } from 'expo-router';
-import { User as UserIcon, Mail, Building, Shield, Bell, LogOut } from 'lucide-react-native';
+import { Bell, Building, LogOut, Mail, Shield, User as UserIcon } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -16,9 +19,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useAuth } from '@/contexts/auth';
-import { useNotifications } from '@/contexts/notifications';
-import Colors from '@/constants/colors';
 
 export default function ProfileScreen() {
   const { user, logout, preferences, updatePreferences, updateProfile } = useAuth();
@@ -58,7 +58,13 @@ export default function ProfileScreen() {
       setImageUri(uri);
 
       setIsUploadingPhoto(true);
-      const downloadURL = await uploadProfileImage(user.id, uri);
+      let downloadURL = uri;
+      try {
+        downloadURL = await uploadProfileImage(user.id, uri);
+      } catch (uploadError) {
+        console.warn('Profile photo upload failed, falling back to local URI:', uploadError);
+        // Continue with local URI
+      }
 
       // Swap preview to stable URL and update auth context immediately for screen re-mounts.
       setImageUri(downloadURL);
@@ -66,16 +72,22 @@ export default function ProfileScreen() {
 
       try {
         await updateUserProfilePhoto(user.id, downloadURL);
+        if (downloadURL === uri) {
+          Alert.alert(
+            'Saved Locally',
+            'Photo could not be uploaded to the cloud, but it has been saved to your profile on this device.'
+          );
+        }
       } catch (error: any) {
         console.error('Failed to save profile photo URL:', error?.code, error?.message);
         Alert.alert(
-          'Saved Locally',
-          'Your photo was uploaded, but we could not save it to your profile yet. It may not persist until you are back online.'
+          'Error',
+          'Failed to save photo to profile.'
         );
       }
     } catch (error) {
-      console.error('Profile image picker/upload error:', error);
-      Alert.alert('Error', 'Failed to update profile photo. Please try again.');
+      console.error('Profile image picker error:', error);
+      Alert.alert('Error', 'Failed to pick image.');
     } finally {
       setIsUploadingPhoto(false);
     }
