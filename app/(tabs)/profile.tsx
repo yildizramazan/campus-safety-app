@@ -62,8 +62,8 @@ export default function ProfileScreen() {
       try {
         downloadURL = await uploadProfileImage(user.id, uri);
       } catch (uploadError) {
-        console.warn('Profile photo upload failed, falling back to local URI:', uploadError);
-        // Continue with local URI
+        // Silently fail upload and fall back to local URI
+        console.log('Using local URI as fallback');
       }
 
       // Swap preview to stable URL and update auth context immediately for screen re-mounts.
@@ -72,18 +72,10 @@ export default function ProfileScreen() {
 
       try {
         await updateUserProfilePhoto(user.id, downloadURL);
-        if (downloadURL === uri) {
-          Alert.alert(
-            'Saved Locally',
-            'Photo could not be uploaded to the cloud, but it has been saved to your profile on this device.'
-          );
-        }
       } catch (error: any) {
         console.error('Failed to save profile photo URL:', error?.code, error?.message);
-        Alert.alert(
-          'Error',
-          'Failed to save photo to profile.'
-        );
+        // Only show alert for database failure, not upload failure
+        Alert.alert('Error', 'Failed to save photo to profile.');
       }
     } catch (error) {
       console.error('Profile image picker error:', error);
