@@ -1,50 +1,82 @@
-# Welcome to your Expo app 👋
+# Campus Safety App (Atatürk University)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A comprehensive mobile safety application designed for Atatürk University students and staff. This app enables real-time incident reporting, emergency alerts, and efficient communication between the campus community and safety officials.
 
-## Get started
+## 🚀 Features
 
-1. Install dependencies
+### for Users
+- **Emergency Alerts:** Receive critical campus-wide announcements instantly.
+- **Incident Reporting:** View and follow safety notifications and incidents.
+- **User Profiles:** Manage your profile, update your photo, and set department information.
+- **Notification Preferences:** Customize how you want to be notified (Push, Email, Emergency Alerts).
+- **Secure Authentication:** Sign up and login securely using email and password.
 
+### for Admins
+- **Admin Panel:** Specialized dashboard for safety officials.
+- **Broadcast Alerts:** Issue emergency alerts to all users.
+- **Manage Incidents:** Review, update status, and resolve reported incidents.
+
+## 🛠 Tech Stack
+
+- **Framework:** [React Native](https://reactnative.dev/) with [Expo](https://expo.dev/)
+- **Language:** [TypeScript](https://www.typescriptlang.org/)
+- **Routing:** [Expo Router](https://docs.expo.dev/router/introduction/)
+- **Backend:** [Firebase](https://firebase.google.com/)
+  - **Authentication:** User management
+  - **Firestore:** Real-time database for profiles, alerts, and notifications
+  - **Storage:** Profile image hosting
+- **Icons:** [Lucide React Native](https://lucide.dev/guide/packages/lucide-react-native)
+
+## 🎨 Branding
+
+The app follows the Atatürk University visual identity:
+- **Primary Color:** Navy Blue (`#1C1C4E`)
+- **Accent Color:** Gold (`#D4AF37`)
+
+## 🏁 Getting Started
+
+### Prerequisites
+- Node.js installed
+- A Firebase project set up with Auth, Firestore, and Storage enabled.
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/yildizramazan/campus-safety-app.git
+   cd campus-safety-app
+   ```
+
+2. **Install dependencies**
    ```bash
    npm install
    ```
 
-2. Start the app
+3. **Configure Environment Variables**
+   Create a `.env` file in the root directory and add your Firebase configuration:
+   ```env
+   EXPO_PUBLIC_FIREBASE_API_KEY=your_api_key
+   EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project_id.firebaseapp.com
+   EXPO_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+   EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project_id.firebasestorage.app
+   EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+   EXPO_PUBLIC_FIREBASE_APP_ID=your_app_id
+   ```
 
+4. **Start the application**
    ```bash
    npx expo start
    ```
 
-In the output, you'll find options to open the app in a
+5. **Run on Device/Emulator**
+   - Press `i` to open in iOS Simulator.
+   - Press `a` to open in Android Emulator.
+   - Scan the QR code with the Expo Go app on your physical device.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## 📱 Screenshots
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+_(Add screenshots of Login, Home, and Profile screens here)_
 
-## Get a fresh project
+## 📄 License
 
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+This project is proprietary software for Atatürk University Campus Safety.
