@@ -1,4 +1,3 @@
-```
 import Colors from '@/constants/colors';
 import { useAuth } from '@/contexts/auth';
 import { useNotifications } from '@/contexts/notifications';
