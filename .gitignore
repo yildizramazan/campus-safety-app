@@ -33,6 +33,7 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env
 
 # typescript
 *.tsbuildinfo
@@ -40,3 +41,10 @@ yarn-error.*
 
 .rork
 .env
+
+*.json
+!app.json
+!google-services.json
+!GoogleService-Info.plist
+
+campus-safety-4368f-firebase-adminsdk-*.json

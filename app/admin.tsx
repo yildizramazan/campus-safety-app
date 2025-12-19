@@ -144,7 +144,7 @@ export default function AdminPanelScreen() {
       setShowEditModal(false);
       setEditingNotification(null);
       Alert.alert('Success', 'Notification updated');
-    } catch (e) {
+    } catch {
       Alert.alert('Error', 'Failed to update notification');
     }
   };

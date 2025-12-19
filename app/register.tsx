@@ -47,6 +47,8 @@ export default function RegisterScreen() {
 
     if (!result.success) {
       Alert.alert('Registration Failed', result.error || 'An error occurred');
+    } else if (result.message) {
+      Alert.alert('Notice', result.message);
     }
   };
 
