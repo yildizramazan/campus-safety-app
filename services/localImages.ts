@@ -45,21 +45,42 @@ export async function saveNotificationLocalImage(
         // Create file instance directly (doesn't need to exist yet)
         const localFile = new File(dir, fileName);
 
-        // Read source file data using fetch (more reliable for file:// URIs)
-        const response = await fetch(pickedUri);
-        if (!response.ok) {
-            throw new Error(`Failed to read source file: ${response.status}`);
+        // Use standard FileSystem API to copy for performance and stability
+        // This avoids loading the whole file into JS memory (blob) and fixes the blob.arrayBuffer issue
+        if (pickedUri.startsWith('file://')) {
+            await copyAsync({
+                from: pickedUri,
+                to: localFile.uri
+            });
+        } else {
+            // Fallback for non-local URIs (rare in this context but possible)
+            const response = await fetch(pickedUri);
+            if (!response.ok) {
+                throw new Error(`Failed to read source file: ${response.status}`);
+            }
+            const blob = await response.blob();
+
+            // Write using the specific new File API stream if needed, or just standard write
+            const writableStream = localFile.writableStream();
+            const writer = writableStream.getWriter();
+
+            // Polyfill-like approach for blob -> Uint8Array if arrayBuffer() is missing
+            const reader = new FileReader();
+            await new Promise<void>((resolve, reject) => {
+                reader.onload = async () => {
+                    const result = reader.result;
+                    if (result instanceof ArrayBuffer) {
+                        await writer.write(new Uint8Array(result));
+                        resolve();
+                    } else {
+                        reject(new Error('Failed to read blob as ArrayBuffer'));
+                    }
+                };
+                reader.onerror = () => reject(reader.error);
+                reader.readAsArrayBuffer(blob);
+            });
+            await writer.close();
         }
-
-        const blob = await response.blob();
-        const arrayBuffer = await blob.arrayBuffer();
-        const uint8Array = new Uint8Array(arrayBuffer);
-
-        // Write to the file - this will create it if it doesn't exist
-        const writableStream = localFile.writableStream();
-        const writer = writableStream.getWriter();
-        await writer.write(uint8Array);
-        await writer.close();
 
         // Store the mapping in AsyncStorage
         const storageKey = `${STORAGE_KEY_PREFIX}${notificationId}`;

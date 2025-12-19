@@ -1,13 +1,15 @@
-import { View, Text, StyleSheet, FlatList, RefreshControl } from 'react-native';
-import { useState } from 'react';
-import { Stack } from 'expo-router';
-import { AlertTriangle, Clock, User as UserIcon } from 'lucide-react-native';
-import { useNotifications } from '@/contexts/notifications';
 import Colors from '@/constants/colors';
+import { useAuth } from '@/contexts/auth';
+import { useNotifications } from '@/contexts/notifications';
 import { EmergencyAlert } from '@/types';
+import { Stack } from 'expo-router';
+import { AlertTriangle, Clock, Trash2, User as UserIcon } from 'lucide-react-native';
+import { useState } from 'react';
+import { Alert, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function AlertsScreen() {
-  const { emergencyAlerts, getFollowedNotifications } = useNotifications();
+  const { emergencyAlerts, getFollowedNotifications, deleteEmergencyAlert } = useNotifications();
+  const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
 
   const followedNotifications = getFollowedNotifications();
@@ -15,6 +17,27 @@ export default function AlertsScreen() {
   const onRefresh = () => {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 1000);
+  };
+
+  const handleDelete = (id: string, title: string) => {
+    Alert.alert(
+      'Delete Alert',
+      `Are you sure you want to delete "${title}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteEmergencyAlert(id);
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete alert');
+            }
+          }
+        }
+      ]
+    );
   };
 
   const getTimeAgo = (dateString: string) => {
@@ -38,6 +61,14 @@ export default function AlertsScreen() {
           <Text style={styles.emergencyBadge}>EMERGENCY ALERT</Text>
           <Text style={styles.emergencyTime}>{getTimeAgo(item.createdAt)}</Text>
         </View>
+        {user?.role === 'admin' && (
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => handleDelete(item.id, item.title)}
+          >
+            <Trash2 size={20} color="#991B1B" />
+          </TouchableOpacity>
+        )}
       </View>
       <Text style={styles.emergencyTitle}>{item.title}</Text>
       <Text style={styles.emergencyMessage}>{item.message}</Text>
@@ -255,5 +286,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     textAlign: 'center',
+  },
+  deleteButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#FEE2E2',
+    marginLeft: 8,
   },
 });

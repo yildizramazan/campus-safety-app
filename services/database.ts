@@ -139,3 +139,7 @@ export const createEmergencyAlertInDb = async (
     const ref = await addDoc(collection(db, 'emergency_alerts'), alert);
     return ref.id;
 };
+
+export const deleteEmergencyAlertFromDb = async (alertId: string) => {
+    await deleteDoc(doc(db, 'emergency_alerts', alertId));
+};

@@ -3,12 +3,14 @@ import { NOTIFICATION_TYPES } from '@/constants/notifications';
 import { useAuth } from '@/contexts/auth';
 import { useNotifications } from '@/contexts/notifications';
 import { NotificationType } from '@/types';
+import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
-import { Check, HeartPulse, Leaf, MapPin, Search, ShieldAlert, Wrench } from 'lucide-react-native';
+import { Camera, Check, HeartPulse, Leaf, MapPin, Search, ShieldAlert, Wrench, X } from 'lucide-react-native';
 import { useState } from 'react';
 import {
   Alert,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -17,7 +19,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import MapView, { Marker, Region } from 'react-native-maps';
 
@@ -50,6 +52,7 @@ export default function CreateNotificationScreen() {
   const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
   const [mapSelection, setMapSelection] = useState<{ latitude: number; longitude: number } | null>(null);
   const [mapRegion, setMapRegion] = useState<Region>(DEFAULT_REGION);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const handleGetLocation = async () => {
     try {
@@ -134,6 +137,22 @@ export default function CreateNotificationScreen() {
     setIsMapPickerOpen(false);
   };
 
+  const pickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        setSelectedImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to pick image');
+    }
+  };
+
   const handleSubmit = async () => {
     if (!title.trim()) {
       Alert.alert('Validation Error', 'Please enter a title');
@@ -166,6 +185,7 @@ export default function CreateNotificationScreen() {
         title: title.trim(),
         description: description.trim(),
         location: locationPayload,
+        photoUrl: selectedImage,
       });
 
       Alert.alert(
@@ -178,6 +198,7 @@ export default function CreateNotificationScreen() {
               setTitle('');
               setDescription('');
               setLocation(null);
+              setSelectedImage(null);
               router.back();
             },
           },
@@ -263,6 +284,26 @@ export default function CreateNotificationScreen() {
             testID="description-input"
           />
           <Text style={styles.characterCount}>{description.length}/500</Text>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Photo</Text>
+          {selectedImage ? (
+            <View style={styles.imagePreviewContainer}>
+              <Image source={{ uri: selectedImage }} style={styles.imagePreview} />
+              <TouchableOpacity
+                style={styles.removeImageButton}
+                onPress={() => setSelectedImage(null)}
+              >
+                <X size={16} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.photoButton} onPress={pickImage}>
+              <Camera size={20} color={Colors.light.tint} />
+              <Text style={styles.photoButtonText}>Add Photo</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <View style={styles.section}>
@@ -521,5 +562,43 @@ const styles = StyleSheet.create({
   },
   mapActionTextPrimary: {
     color: '#FFFFFF',
+  },
+  photoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: Colors.light.card,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    borderRadius: 12,
+    padding: 16,
+    borderStyle: 'dashed',
+  },
+  photoButtonText: {
+    fontSize: 16,
+    color: Colors.light.tint,
+    fontWeight: '500' as const,
+  },
+  imagePreviewContainer: {
+    position: 'relative',
+    borderRadius: 12,
+    overflow: 'hidden',
+    height: 200,
+    backgroundColor: Colors.light.card,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  imagePreview: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 12,
+    padding: 6,
   },
 });

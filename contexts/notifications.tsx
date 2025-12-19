@@ -2,6 +2,7 @@ import { db } from '@/config/firebaseConfig';
 import {
   createEmergencyAlertInDb,
   createNotificationInDb,
+  deleteEmergencyAlertFromDb,
   deleteNotificationFromDb,
   updateNotificationInDb
 } from '@/services/database';
@@ -148,6 +149,8 @@ export const [NotificationsProvider, useNotifications] = createContextHook(() =>
 
     const timestamp = new Date().toISOString();
     const department = user.department?.trim();
+
+    // Initial data - photoUrl might be temporary here, but we'll update it
     const newNotificationData: Omit<Notification, 'id'> = {
       ...data,
       status: 'open',
@@ -160,7 +163,8 @@ export const [NotificationsProvider, useNotifications] = createContextHook(() =>
     };
 
     const id = await createNotificationInDb(newNotificationData);
-    // State update handled by listener
+
+    // State update handled by listener, but we return the most up-to-date object
     return { id, ...newNotificationData };
   }, [user]);
 
@@ -245,6 +249,19 @@ export const [NotificationsProvider, useNotifications] = createContextHook(() =>
     }
   }, [user]);
 
+  const deleteEmergencyAlert = useCallback(async (id: string) => {
+    try {
+      if (!user || user.role !== 'admin') {
+        throw new Error('Only admins can delete emergency alerts');
+      }
+      await deleteEmergencyAlertFromDb(id);
+      // State update handled by listener
+    } catch (error) {
+      console.error("Failed to delete emergency alert", error);
+      throw error;
+    }
+  }, [user]);
+
   const getNotificationById = useCallback((id: string) => {
     return notifications.find(n => n.id === id);
   }, [notifications]);
@@ -265,6 +282,7 @@ export const [NotificationsProvider, useNotifications] = createContextHook(() =>
     deleteNotification,
     toggleFollow,
     createEmergencyAlert,
+    deleteEmergencyAlert,
     getNotificationById,
     getFollowedNotifications,
   };
